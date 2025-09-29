@@ -1,0 +1,430 @@
+/* frontend/src/index.css */
+
+/* ========== Tailwind Base ========== */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ========== Theme variables ========== */
+/* Add class "theme-dark" or "theme-light" to <html> to switch theme */
+.theme-dark {
+  --bg-main: rgba(31,31,31,1);       /* основной фон приложения */
+  --bg-surface: rgba(41,42,45,1);
+  --bg-variant: rgba(62,67,72,1);   /* поверхность (sidebar, input, user msg, селект и т.д.) */
+  --text-main: #ccc;
+  --text-muted: #888;
+  --muted-weak: rgba(148,163,184,0.32);
+  --border-color: rgba(255,255,255,0.05);
+  --code-bg: rgba(21,21,21,1);
+  --code-border: rgba(255,255,255,0.03);
+  --code-text: #d4d4d4;
+  --inline-code-bg: rgba(255,255,255,0.03);
+  --inline-code-border: rgba(255,255,255,0.02);
+  --scroll-thumb: rgba(75,85,99,0.6);
+  --scroll-thumb-weak: rgba(100,116,139,0.6);
+  --accent-gradient-from: #7e22ce;
+  --accent-gradient-to: #4338ca;
+}
+
+.theme-light {
+  /* повышенная контрастность для светлой темы */
+  --bg-main: #f9f9f9;                  /* основной фон приложения */
+  --bg-surface: #ffffff;
+  --bg-variant: #e7e7e7;               /* поверхность элементов (вкладки, сайдбар, инпуты) */
+  --text-main: #0f1724;                /* основной текст — чуть темнее и насыщеннее */
+  --text-muted: #222832;               /* приглушённый текст */
+  --muted-weak: rgba(75,85,99,0.14);   /* слабый акцент для scroll/thumb */
+  --border-color: rgba(0,0,0,0.08);    /* более явная граница на светлом фоне */
+
+  /* код и подсветка */
+  --code-bg: #f3f4f6;                  /* фон блоков кода — светло-серый (не белый) */
+  --code-border: rgba(0,0,0,0.06);     /* тонкая тёмная граница для кода */
+  --code-text: #0b1220;                /* текст в коде — тёмный и насыщенный */
+  --inline-code-bg: rgba(11,18,32,0.04);/* фон inline-кода */
+  --inline-code-border: rgba(11,18,32,0.06);
+
+
+  /* скроллбары и мелкие элементы */
+  --scroll-thumb: rgba(100,116,139,0.36);
+  --scroll-thumb-weak: rgba(148,163,184,0.24);
+
+  /* акцентные градиенты (кнопки) */
+  --accent-gradient-from: #6b21a8;     /* насыщенный пурпурный */
+  --accent-gradient-to: #2563eb;       /* насыщенный синий */
+}
+
+/* ========== Global Base Styles ========== */
+@layer base {
+  :root {
+    color-scheme: light dark;
+  }
+
+  html, body {
+    height: 100%;
+  }
+
+  body {
+    @apply font-mono;
+    background-color: var(--bg-main);
+    color: var(--text-main);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Reset text color for common elements so components using plain tags inherit theme */
+  html, body, p, span, div, li, h1, h2, h3, h4, h5, h6, code, pre, blockquote {
+    color: var(--text-main);
+  }
+
+  strong {
+    color: var(--text-main);
+    font-weight: 700;
+  }
+}
+
+/* ========== Scrollbars ========== */
+/* Code blocks (<pre>) */
+pre {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scroll-thumb) transparent;
+  padding-right: 1.5rem; /* prevent overlap with scrollbar */
+  background: var(--code-bg);
+  color: var(--code-text);
+  border: 1px solid var(--code-border);
+}
+pre::-webkit-scrollbar {
+  height: 10px;
+  width: 10px;
+}
+pre::-webkit-scrollbar-thumb {
+  background-color: var(--scroll-thumb);
+  border-radius: 9999px;
+  border: 2px solid var(--bg-main);
+}
+pre::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Custom scroll containers */
+.custom-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scroll-thumb-weak) transparent;
+}
+.custom-scroll::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+.custom-scroll::-webkit-scrollbar-thumb {
+  background-color: var(--scroll-thumb-weak);
+  border-radius: 9999px;
+  border: 2px solid var(--bg-main);
+}
+.custom-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scroll:hover::-webkit-scrollbar-thumb {
+  background-color: rgba(148,163,184,0.75);
+}
+.custom-scroll > * {
+  padding-right: 0.25rem;
+}
+
+/* Textarea scroll */
+textarea.custom-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148,163,184,0.45) transparent;
+  padding-right: 1rem;
+}
+textarea.custom-scroll::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+textarea.custom-scroll::-webkit-scrollbar-thumb {
+  background-color: rgba(148,163,184,0.45);
+  border-radius: 9999px;
+  border: 2px solid var(--bg-surface);
+}
+textarea.custom-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+textarea.custom-scroll:focus::-webkit-scrollbar-thumb {
+  background-color: rgba(148,163,184,0.65);
+}
+
+/* ========== Form Focus Reset ========== */
+input:focus,
+.modal-input:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+/* ========== Animations ========== */
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes glow {
+  0% { box-shadow: 0 0 0px rgba(255,255,255,0.2); }
+  50% { box-shadow: 0 0 6px rgba(255,255,255,0.4); }
+  100% { box-shadow: 0 0 0px rgba(255,255,255,0.2); }
+}
+@keyframes color-pulse {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* scrollText — использует CSS-переменную --scroll-distance */
+/*@keyframes scrollText {*/
+/*  0% { transform: translateX(0); }*/
+/*  10% { transform: translateX(0); }*/
+/*  90% { transform: translateX(var(--scroll-distance)); }*/
+/*  100% { transform: translateX(var(--scroll-distance)); }*/
+/*}*/
+
+/* Animation utility classes */
+.loader {
+  width: 48px;
+  height: 48px;
+  border: 6px solid rgba(255, 255, 255, 0.2);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+.animate-fade-in { animation: fade-in 0.6s ease-out forwards; }
+.animate-glow { animation: glow 3s infinite; }
+.animate-color-pulse {
+  background: linear-gradient(270deg, var(--accent-gradient-from), var(--accent-gradient-to));
+  background-size: 400% 400%;
+  animation: color-pulse 3s ease infinite;
+}
+
+/* ========== VSCode-like Markdown Styling ========== */
+.message-markdown {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", "Segoe UI Mono", "Courier New", monospace;
+  font-size: 16px;
+  line-height: 1.45;
+  color: var(--text-main);
+}
+
+/* Code block container */
+.message-markdown pre,
+.message-markdown pre.hljs {
+  background: var(--code-bg) !important;
+  color: var(--code-text) !important;
+  padding: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--code-border);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+  margin: 0.75rem 0;
+}
+
+/* Inner wrapper (.p-4 used in Message.jsx) */
+.message-markdown .p-4 {
+  padding: 14px 16px;
+  max-width: 100%;
+  overflow-x: auto;
+  white-space: pre;
+  background: transparent;
+}
+.message-markdown .p-4::-webkit-scrollbar {
+  height: 8px;
+}
+.message-markdown .p-4::-webkit-scrollbar-thumb {
+  background-color: var(--muted-weak);
+  border-radius: 9999px;
+  border: 2px solid var(--code-bg);
+}
+
+/* Inline code */
+.message-markdown code:not(pre code) {
+  background: var(--inline-code-bg);
+  padding: 0.12rem 0.36rem;
+  border-radius: 4px;
+  font-size: 1em;
+  color: var(--code-text);
+  border: 1px solid var(--inline-code-border);
+}
+
+/* Line numbers (optional) */
+.message-markdown .code-with-gutter { display: flex; align-items: stretch; }
+.message-markdown .code-with-gutter .gutter {
+  background: rgba(0,0,0,0.02);
+  color: rgba(100,100,100,0.7);
+  padding: 12px 8px;
+  text-align: right;
+  user-select: none;
+  font-size: 14px;
+  line-height: 1.45;
+  border-right: 1px solid rgba(0,0,0,0.02);
+}
+.message-markdown .code-with-gutter .code { flex: 1; padding-left: 12px; }
+
+/* Hover effects */
+.message-markdown pre:hover {
+  box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+  transform: translateY(-1px);
+  transition: all 120ms ease;
+}
+.message-markdown .hljs-line { padding: 0 8px; }
+.message-markdown .hljs-line:hover { background: rgba(0,0,0,0.02); }
+
+/* Token highlighting (adjust to your highlight.js theme as needed) */
+/* Default (dark) token colors remain from imported hljs theme; we add overrides for light theme below */
+.message-markdown .hljs-keyword { color: #c586c0; }
+.message-markdown .hljs-built_in { color: #4fc1ff; }
+.message-markdown .hljs-title,
+.message-markdown .hljs-title.function_ { color: #9cdcfe; }
+.message-markdown .hljs-string { color: #98c379; }
+.message-markdown .hljs-number { color: #b5cea8; }
+.message-markdown .hljs-comment { color: #6a9955; opacity: 0.85; font-style: italic; }
+.message-markdown .hljs-attr { color: #9cdcfe; }
+.message-markdown .hljs-params { color: #dcdcaa; }
+
+/* Cleanup highlight.js styles */
+.message-markdown pre.hljs,
+.message-markdown .hljs {
+  background: transparent !important;
+  padding: 0 !important;
+  color: inherit !important;
+  border-radius: 0 !important;
+}
+.message-markdown code { background: transparent; }
+.message-markdown pre code { display: block; }
+
+/* ========== Accessibility and Responsiveness ========== */
+@media (max-width: 768px) {
+  .message-markdown .p-4 { padding: 12px; font-size: 12px; }
+  .message-markdown code:not(pre code) { font-size: 0.92em; }
+}
+
+/* Focus outline for keyboard users */
+.message-markdown pre:focus-within,
+.message-markdown pre:focus {
+  outline: 2px solid rgba(100,116,139,0.18);
+  outline-offset: 4px;
+}
+
+/* ========== Small UI Helpers ========== */
+@keyframes fadeInUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+.answer-line { animation-name: fadeInUp; animation-duration: 420ms; animation-fill-mode: forwards; animation-timing-function: cubic-bezier(.2,.9,.2,1); }
+
+@keyframes thinkPulse { 0% { opacity: 0.1; } 50% { opacity: 0.5; } 100% { opacity: 0.1; } }
+.animate-think-pulse { animation: thinkPulse 3000ms ease-in-out infinite; }
+
+.focus-glow { box-shadow: 0 6px 22px rgba(67,56,202,0.08); border-radius: 8px; }
+
+/* small override for header spacing if needed */
+.header-title-adjust { margin-left: -30px; margin-top: 3px; }
+
+/* small specific rule for legacy selector used in markup */
+span.text-lg.font-semibold.text-white.transition-all.duration-300.ease-in-out {
+  margin: 4px 33px 0 0;
+}
+
+/* scroll utility */
+.scroll-animate { will-change: transform; white-space: nowrap; display: inline-block; }
+
+/* small button layout tweak (kept as fallback) */
+button.flex.items-center.gap-2.m-2.p-2.rounded.hover\:bg-gray-700.transition-all.duration-300.ease-in-out.justify-center {
+  margin-left: 14px;
+}
+
+/* Theme helper classes */
+.text-muted { color: var(--text-muted); }
+.border-theme { border-color: var(--border-color); }
+
+/* Surface bg utility (use className="bg-surface" or bg-[var(--bg-surface)]) */
+.bg-surface { background-color: var(--bg-surface); }
+
+/* ========== Light-theme highlight.js overrides (stronger contrast) ========== */
+/* These override token colors for light theme to ensure import/from, keywords, strings, numbers are more visible */
+.theme-light .hljs-keyword,
+.theme-light .hljs-selector-tag,
+.theme-light .hljs-doctag,
+.theme-light .hljs-title,
+.theme-light .hljs-section,
+.theme-light .hljs-built_in,
+.theme-light .hljs-builtin-name,
+.theme-light .hljs-tag {
+  color: #d73a49; /* насыщенный красный для ключевых слов и import/from */
+  font-weight: 600;
+}
+
+.theme-light .hljs-attr,
+.theme-light .hljs-variable,
+.theme-light .hljs-template-variable,
+.theme-light .hljs-type,
+.theme-light .hljs-params,
+.theme-light .hljs-number {
+  color: #005cc5; /* синий для чисел/переменных */
+}
+
+.theme-light .hljs-string,
+.theme-light .hljs-meta .hljs-string,
+.theme-light .hljs-literal {
+  color: #22863a; /* зелёный для строк */
+}
+
+.theme-light .hljs-comment,
+.theme-light .hljs-quote {
+  color: #6a737d; /* приглушённый коммент */
+  font-style: italic;
+}
+
+.theme-light .hljs-function .hljs-title,
+.theme-light .hljs-emphasis {
+  color: #6f42c1; /* фиолетовый для функций/эмфаза */
+}
+
+.theme-light .hljs-tag .hljs-name {
+  color: #22863a;
+}
+
+/* Inline code contrast on light theme */
+.theme-light code,
+.theme-light .message-markdown code:not(pre code) {
+  color: var(--code-text);
+  background: var(--inline-code-bg);
+  border: 1px solid var(--inline-code-border);
+}
+
+/* Slight shadow for code blocks on light theme */
+.theme-light .message-markdown pre {
+  box-shadow: 0 6px 18px rgba(16,24,40,0.04);
+}
+
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.animate-fade-in {
+  animation: fadeIn 0.5s ease-out forwards;
+}
+
+@keyframes shimmer {
+  0% { background-position: -200px 0; }
+  100% { background-position: 200px 0; }
+}
+.shimmer {
+  background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.04) 75%);
+  background-size: 400px 100%;
+  animation: shimmer 2.4s linear infinite;
+}
+.pulse-slow {
+  animation: thinkPulse 3s ease-in-out infinite;
+}
+@keyframes thinkPulse {
+  0%, 100% { opacity: 0.1; }
+  50% { opacity: 0.6; }
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0.1; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in-up {
+  animation: fadeInUp 0.4s ease-out;
+}
+
+/* End of file */
