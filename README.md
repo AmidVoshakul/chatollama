@@ -26,10 +26,12 @@
 ### Установка и запуск
 
 ```bash
+git clone https://github.com/AmidVoshakul/chatollama.git
 cd ollama-web-chat/
 chmod +x startvenv.sh
 ./startvenv.sh
 ```
+Перейти в браузере по адресу http://localhost:5173/
 
 ![Скриншот 2](screenshots/Screenshot_2025-09-27_19-38-56.png)
 
