@@ -30,7 +30,6 @@ cd ollama-web-chat/
 chmod +x startvenv.sh
 ./startvenv.sh
 ```
-![ollama-web-chat](https://github.com/AmidVoshakul/ollama-web-chat/blob/main/screenshots/Screenshot_2025-09-27_19-38-56.png)
 
 ![Скриншот 2](screenshots/Screenshot_2025-09-27_19-38-56.png)
 
