@@ -27,7 +27,7 @@
 
 ```bash
 git clone https://github.com/AmidVoshakul/chatollama.git
-cd chatollama/
+cd ollama-web-chat/
 chmod +x startvenv.sh
 ./startvenv.sh
 ```
