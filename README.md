@@ -1,5 +1,3 @@
-> Интерфейс для общения с локальной моделью Ollama. FastAPI + React. Расширяемый, быстрый, open-source.
-
 ![MIT License](https://img.shields.io/badge/license-MIT-green)
 ![Made with Python](https://img.shields.io/badge/made%20with-Python-blue)
 ![Made with React](https://img.shields.io/badge/made%20with-React-blue)
