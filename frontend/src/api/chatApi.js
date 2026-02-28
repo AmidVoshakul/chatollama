@@ -89,3 +89,50 @@ export async function regenerateAssistantMessage(messageId, model) {
     const {data} = await axios.post(`/api/messages/${messageId}/regenerate`, {model})
     return data
 }
+
+// Streaming перегенерация ответа ассистента
+export async function regenerateAssistantMessageStream(messageId, model, onChunk, onDone, onError) {
+    const response = await fetch(`/api/messages/${messageId}/regenerate/stream`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({model}),
+    })
+
+    if (!response.ok) {
+        const errorText = await response.text()
+        onError?.(errorText)
+        return
+    }
+
+    const reader = response.body.getReader()
+    const decoder = new TextDecoder()
+
+    while (true) {
+        const {done, value} = await reader.read()
+        if (done) break
+
+        const text = decoder.decode(value, {stream: true})
+        const lines = text.split('\n')
+
+        for (const line of lines) {
+            if (line.startsWith('data:')) {
+                const data = line.slice(5).trim()
+                if (data.startsWith('error:')) {
+                    onError?.(data.slice(6))
+                    return
+                }
+                if (data.startsWith('chunk:')) {
+                    onChunk?.(data.slice(6))
+                    continue
+                }
+                if (data.startsWith('done:')) {
+                    const msgId = parseInt(data.slice(5), 10)
+                    onDone?.(msgId)
+                    return
+                }
+            }
+        }
+    }
+}

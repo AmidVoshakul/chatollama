@@ -18,6 +18,7 @@ import {
   deleteMessage as apiDeleteMessage,
   editMessage as apiEditMessage,
   regenerateAssistantMessage,
+  regenerateAssistantMessageStream,
   stopGeneration,
 } from '../api/chatApi'
 
@@ -232,10 +233,9 @@ export default function ChatWindow({
     }
   }
 
-  // Regenerate assistant message
+  // Regenerate assistant message with streaming
   async function regenerateMessage(id, currentModel) {
     if (!id || isTempId(id)) return
-    setIsGenerating(true)
     const resolveAssistantId = passedId => {
       const byId = messages.find(m => m.id === passedId)
       if (byId && byId.role === 'assistant') return passedId
@@ -259,23 +259,56 @@ export default function ChatWindow({
       })
       return
     }
+
+    const streamId = `regen-${assistantId}-${Date.now()}`
+    setMessages(prev =>
+      prev.map(m =>
+        m.id === assistantId
+          ? { ...m, content: '', _isRegenerating: true, _tempStreamId: streamId }
+          : m
+      )
+    )
+    setIsGenerating(true)
+
     try {
       removeShownThoughtIdForMessage(assistantId)
     } catch {}
+
     try {
-      await regenerateAssistantMessage(assistantId, currentModel)
-      await fetchMessagesForChat(chat.id)
-      const thoughtId = `thought-${assistantId}`
-      setMessages(prev =>
-        prev.map(m =>
-          m.hiddenWhileThought === thoughtId
-            ? { ...m, hiddenWhileThought: null }
-            : m
-        )
+      await regenerateAssistantMessageStream(
+        assistantId,
+        currentModel,
+        (chunk) => {
+          setMessages(prev =>
+            prev.map(m =>
+              m._tempStreamId === streamId
+                ? { ...m, content: m.content + chunk }
+                : m
+            )
+          )
+        },
+        (messageId) => {
+          setMessages(prev =>
+            prev.map(m =>
+              m._tempStreamId === streamId
+                ? { ...m, _isRegenerating: false, _tempStreamId: null }
+                : m
+            )
+          )
+          setIsGenerating(false)
+        },
+        (error) => {
+          setMessages(prev =>
+            prev.map(m =>
+              m._tempStreamId === streamId
+                ? { ...m, _isRegenerating: false, _tempStreamId: null, _error: true }
+                : m
+            )
+          )
+          setToast?.({ type: 'error', text: error || 'Ошибка перегенерации' })
+          setIsGenerating(false)
+        }
       )
-      try {
-        removeShownThoughtIdForMessage(assistantId)
-      } catch {}
     } catch (err) {
       if (err.response?.status === 404) {
         await fetchMessagesForChat(chat.id)

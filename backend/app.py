@@ -487,8 +487,76 @@ def regenerate_message(message_id: int, data: dict = Body(default={})):
         session.add(existing)
         session.commit()
         session.refresh(existing)
-        logger.info("Regenerated and updated message id=%s", existing.id)
-        return existing
+    logger.info("Regenerated and updated message id=%s", existing.id)
+    return existing
+
+
+@app.post("/api/messages/{message_id}/regenerate/stream")
+def regenerate_message_stream(message_id: int, body: dict = Body(default={})):
+    """
+    Streaming regenerate endpoint - updates message in place with streaming response.
+    """
+    async def event_generator():
+        with Session(engine) as session:
+            msg = session.get(Message, message_id)
+            if not msg or msg.role != "assistant":
+                yield "data: error:Message not found or not assistant\n\n"
+                return
+            chat_id = msg.chat_id
+            history = session.exec(select(Message).where(Message.chat_id == chat_id).order_by(Message.created_at)).all()
+            prompt = "\n".join(f"{m.role}: {m.content}" for m in history if m.role in ("user", "assistant"))
+            model = body.get("model", msg.model)
+
+        logger.info("Regenerating message id=%s (streaming) using model=%s", message_id, model)
+
+        url = f"{OLLAMA_HOST}/api/generate"
+        payload = {"model": model, "prompt": prompt, "stream": True}
+        headers = {"Accept": "application/x-ndjson", "Content-Type": "application/json"}
+
+        full_response = ""
+
+        try:
+            import httpx
+            import json
+            with httpx.stream("POST", url, json=payload, headers=headers, timeout=180.0) as response:
+                if response.status_code != 200:
+                    error_msg = f"Model error: {response.status_code}"
+                    yield f"data: error:{error_msg}\n\n"
+                    return
+
+                for line in response.iter_lines():
+                    if not line:
+                        continue
+                    try:
+                        data = json.loads(line)
+                        if data.get("done"):
+                            break
+                        token = data.get("response", "")
+                        if token:
+                            full_response += token
+                            yield f"data: chunk:{token}\n\n"
+                    except json.JSONDecodeError:
+                        continue
+        except Exception as e:
+            logger.exception("Streaming regenerate error")
+            yield f"data: error:{str(e)}\n\n"
+            return
+
+        with Session(engine) as session:
+            existing = session.get(Message, message_id)
+            if not existing:
+                yield "data: error:Message disappeared\n\n"
+                return
+            existing.content = full_response
+            existing.model = model
+            session.add(existing)
+            session.commit()
+            session.refresh(existing)
+            logger.info("Regenerated and updated message id=%s (streaming)", existing.id)
+
+        yield f"data: done:{message_id}\n\n"
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 
 @app.get("/api/system/disk")
