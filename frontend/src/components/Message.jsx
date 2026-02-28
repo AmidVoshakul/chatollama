@@ -5,6 +5,7 @@ import remarkGfm from 'remark-gfm'
 import 'highlight.js/styles/github-dark.css'
 import CodeBlock from './CodeBlock'
 import AnimatedMessage from './AnimatedMessage'
+import LoadingDots from './LoadingDots'
 
 export default function Message({
     role,
@@ -13,6 +14,7 @@ export default function Message({
     timestamp,
     onDelete,
     onEdit,
+    onEditAndRegenerate,
     onRegenerate,
     hasError,
     isSidebarOpen = true,
@@ -226,18 +228,89 @@ export default function Message({
             )}
             <div className={bubbleClasses}>
                 {role === 'user' ? (
-                    <div className="flex items-start gap-3 p-3 pt-2">
-                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center shadow-lg">
-                            <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
-                                <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-                            </svg>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                            <div className="message-user-content text-[var(--text-main)] text-[15px] leading-relaxed break-words">
-                                {content}
+                    isEditing ? (
+                        <div className="p-3">
+                            <textarea
+                                ref={textareaRef}
+                                value={editText}
+                                onChange={e => setEditText(e.target.value)}
+                                onKeyDown={e => {
+                                    if (e.key === 'Enter' && !e.shiftKey) {
+                                        e.preventDefault()
+                                        submitEdit()
+                                    }
+                                }}
+                                className="w-full bg-[var(--bg-main)] text-[var(--text-main)] p-3 rounded-lg border border-theme focus:outline-none resize-none overflow-hidden text-sm"
+                                style={{ minHeight: '2.5rem' }}
+                                aria-label="Редактирование"
+                            />
+                            <div className="flex justify-between items-center mt-2">
+                                <button
+                                    onClick={() => {
+                                        setIsEditing(false)
+                                        setEditText(content)
+                                    }}
+                                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm text-[var(--text-muted)] hover:text-red-400 hover:bg-red-500/10 transition-all duration-200"
+                                >
+                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                    Отмена
+                                </button>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={async () => {
+                                            if (editText.trim()) {
+                                                setIsEditing(false)
+                                                if (onEdit) {
+                                                    await onEdit(editText)
+                                                }
+                                            } else {
+                                                setIsEditing(false)
+                                            }
+                                        }}
+                                        className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm text-[var(--text-muted)] hover:text-blue-400 hover:bg-blue-500/10 transition-all duration-200"
+                                    >
+                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                                        </svg>
+                                        Сохранить
+                                    </button>
+                                    <button
+                                        onClick={async () => {
+                                            if (editText.trim()) {
+                                                setIsEditing(false)
+                                                if (onEditAndRegenerate) {
+                                                    await onEditAndRegenerate(editText)
+                                                }
+                                            } else {
+                                                setIsEditing(false)
+                                            }
+                                        }}
+                                        className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm bg-gradient-to-r from-purple-500 to-indigo-500 text-white hover:opacity-90 transition-all duration-200"
+                                    >
+                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                                        </svg>
+                                        Сохранить и отправить
+                                    </button>
+                                </div>
                             </div>
                         </div>
-                    </div>
+                    ) : (
+                        <div className="flex items-start gap-3 p-3 pt-2">
+                            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center shadow-lg">
+                                <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                                </svg>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <div className="message-user-content text-[var(--text-main)] text-[15px] leading-relaxed break-words">
+                                    {content}
+                                </div>
+                            </div>
+                        </div>
+                    )
                 ) : (
                     <React.Fragment>
                         <div className="flex items-center px-4 py-2.5 text-xs text-[var(--text-muted)] relative">
@@ -347,12 +420,19 @@ export default function Message({
                                     aria-label="Редактирование"
                                 />
                             ) : role === 'assistant' ? (
-                                <AnimatedMessage
-                                    content={content}
-                                    isSidebarOpen={isSidebarOpen}
-                                    flattenChildrenToString={flattenChildrenToString}
-                                    disableAnimation={isStreaming}
-                                />
+                                <>
+                                    {isStreaming && !content && (
+                                        <div className="py-2">
+                                            <LoadingDots />
+                                        </div>
+                                    )}
+                                    <AnimatedMessage
+                                        content={content}
+                                        isSidebarOpen={isSidebarOpen}
+                                        flattenChildrenToString={flattenChildrenToString}
+                                        disableAnimation={isStreaming}
+                                    />
+                                </>
                             ) : (
                                 <div className="message-markdown" style={{ maxWidth: '100%' }}>
                                     <ReactMarkdown

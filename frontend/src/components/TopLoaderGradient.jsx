@@ -1,6 +1,6 @@
 import React from 'react'
 
-export default function TopLoaderDots({active}) {
+export default function TopLoaderGradient({active}) {
     return (
         <div className={`absolute top-[1px] left-0 w-full h-1 z-50 pointer-events-none ${active ? '' : 'hidden'}`}>
             <div className="relative w-full h-full overflow-hidden rounded-full">

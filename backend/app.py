@@ -571,3 +571,59 @@ def get_system_disk():
     except Exception as e:
         logger.exception("Cannot get disk info")
         raise HTTPException(status_code=500, detail=f"Cannot get disk info: {e}")
+
+
+@app.post("/api/chats/{chat_id}/generate")
+def generate_response(chat_id: int, body: dict = Body(...)):
+    """
+    Generate assistant response without creating a new user message.
+    Used after editing a user message.
+    """
+    model = body.get("model")
+    prompt = body.get("prompt", "")
+    
+    with Session(engine) as session:
+        if not session.get(Chat, chat_id):
+            raise HTTPException(status_code=404, detail="Chat not found")
+    
+    url = f"{OLLAMA_HOST}/api/generate"
+    payload = {"model": model, "prompt": prompt, "stream": False}
+    headers = {"Accept": "application/json", "Content-Type": "application/json"}
+    
+    try:
+        resp = httpx.post(url, json=payload, headers=headers, timeout=180)
+    except httpx.RequestError as e:
+        logger.exception("HTTP request to Ollama failed")
+        raise HTTPException(status_code=502, detail=f"Connection to model failed: {e}")
+    
+    if resp.status_code != 200:
+        logger.error("Ollama generate returned %s: %s", resp.status_code, resp.text)
+        raise HTTPException(status_code=502, detail=f"Model returned status {resp.status_code}")
+    
+    try:
+        j = resp.json()
+    except Exception as e:
+        logger.exception("Invalid JSON from Ollama")
+        raise HTTPException(status_code=502, detail=f"Invalid JSON from model: {e}")
+    
+    text = ""
+    if isinstance(j, dict):
+        text = j.get("response") or j.get("text") or j.get("output") or ""
+        if not text and "choices" in j and isinstance(j["choices"], list) and j["choices"]:
+            c0 = j["choices"][0]
+            text = c0.get("text") or c0.get("response") or c0.get("message") or ""
+    
+    if not isinstance(text, str):
+        text = str(text)
+    
+    final = text.strip()
+    if not final:
+        raise HTTPException(status_code=500, detail="Model returned empty response")
+    
+    with Session(engine) as session:
+        bot_msg = Message(chat_id=chat_id, role="assistant", content=final, model=model)
+        session.add(bot_msg)
+        session.commit()
+        session.refresh(bot_msg)
+        logger.info("Saved assistant message id=%s for chat=%s (generate)", bot_msg.id, chat_id)
+        return {"id": bot_msg.id, "content": bot_msg.content, "model": bot_msg.model, "created_at": bot_msg.created_at.isoformat()}

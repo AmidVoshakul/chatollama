@@ -4,7 +4,7 @@ import axios from 'axios'
 import Sidebar from './Sidebar'
 import ChatWindow from './ChatWindow'
 import Modal from './Modal'
-import TopLoaderDots from './TopLoaderDots'
+import TopLoaderGradient from './TopLoaderGradient.jsx'
 import LoadingScreen from './LoadingScreen'
 import ErrorScreen from './ErrorScreen'
 
@@ -179,7 +179,7 @@ export default function ChatPage({openSettingsModal, theme, transparentMode}) {
 
     return (
         <div className="flex h-screen bg-[var(--bg-main)] text-[var(--text-main)] relative">
-            <TopLoaderDots active={isGenerating}/>
+            <TopLoaderGradient active={isGenerating}/>
 
             <Sidebar
                 chats={chats}

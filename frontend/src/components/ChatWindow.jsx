@@ -20,6 +20,7 @@ import {
   regenerateAssistantMessage,
   regenerateAssistantMessageStream,
   stopGeneration,
+  generateResponse,
 } from '../api/chatApi'
 
 export default function ChatWindow({
@@ -121,10 +122,12 @@ export default function ChatWindow({
     if (!text || isGenerating || !chat?.id) return
     const tempId = `temp-${Date.now()}`
     const streamId = `stream-${Date.now()}`
+    const now = new Date().toISOString()
+    const selectedModel = model
     setMessages(prev => [
       ...prev,
-      { id: tempId, role: 'user', content: text, _isTemp: true },
-      { id: streamId, role: 'assistant', content: '', _isStreaming: true },
+      { id: tempId, role: 'user', content: text, _isTemp: true, created_at: now, model: selectedModel },
+      { id: streamId, role: 'assistant', content: '', _isStreaming: true, created_at: now, model: selectedModel },
     ])
     setInput('')
     if (textareaRef.current) textareaRef.current.style.height = 'auto'
@@ -233,6 +236,66 @@ export default function ChatWindow({
     }
   }
 
+  // Edit message and regenerate response
+  async function editAndRegenerate(id, newContent) {
+    if (isTempId(id)) {
+      setMessages(prev =>
+        prev.map(m => (m.id === id ? { ...m, content: newContent } : m))
+      )
+      return
+    }
+    try {
+      const msgIndex = messages.findIndex(m => m.id === id)
+      const userMsg = messages[msgIndex]
+      const modelToUse = userMsg?.model || model
+      
+      await apiEditMessage(id, newContent)
+      
+      if (msgIndex >= 0) {
+        const msgsToDelete = messages.slice(msgIndex + 1)
+        for (const msg of msgsToDelete) {
+          if (!isTempId(msg.id)) {
+            await apiDeleteMessage(msg.id)
+          }
+        }
+        setMessages(prev => prev.slice(0, msgIndex + 1))
+      }
+      
+      const updatedMessages = await fetchMessagesForChat(chat.id)
+      
+      const prompt = updatedMessages
+        .map(m => `${m.role}: ${m.content}`)
+        .join('\n')
+      
+      setIsGenerating(true)
+      const streamId = `edit-${id}-${Date.now()}`
+      const now = new Date().toISOString()
+      setMessages(prev => [
+        ...prev,
+        { _isTemp: true, id: streamId, role: 'assistant', content: '', _isStreaming: true, model: modelToUse, created_at: now },
+      ])
+      
+      try {
+        const result = await generateResponse(chat.id, modelToUse, prompt)
+        
+        setMessages(prev => prev.filter(m => m.id !== streamId))
+        
+        const newMessages = await fetchMessagesForChat(chat.id)
+        setMessages(newMessages)
+        setIsGenerating(false)
+      } catch (err) {
+        setMessages(prev =>
+          prev.map(m =>
+            m.id === streamId ? { ...m, _error: true, _isStreaming: false } : m
+          )
+        )
+        setIsGenerating(false)
+      }
+    } catch {
+      setToast?.({ type: 'error', text: 'Ошибка редактирования сообщения' })
+    }
+  }
+
   // Regenerate assistant message with streaming
   async function regenerateMessage(id, currentModel) {
     if (!id || isTempId(id)) return
@@ -261,10 +324,11 @@ export default function ChatWindow({
     }
 
     const streamId = `regen-${assistantId}-${Date.now()}`
+    const now = new Date().toISOString()
     setMessages(prev =>
       prev.map(m =>
         m.id === assistantId
-          ? { ...m, content: '', _isRegenerating: true, _tempStreamId: streamId }
+          ? { ...m, content: '', _isRegenerating: true, _tempStreamId: streamId, created_at: now }
           : m
       )
     )
@@ -412,14 +476,13 @@ export default function ChatWindow({
               content={msg.content}
               model={msg.model}
               timestamp={msg.created_at}
+              model={msg.model}
               isTemp={msg._isTemp}
               hasError={msg._error}
               isStreaming={msg._isStreaming}
               onDelete={() => deleteMessage(msg.id)}
-              onEdit={async (newContent, onFinish) => {
-                await editMessage(msg.id, newContent)
-                onFinish?.()
-              }}
+              onEdit={(newContent) => editMessage(msg.id, newContent)}
+              onEditAndRegenerate={(newContent) => editAndRegenerate(msg.id, newContent)}
               onRegenerate={() => regenerateMessage(msg.id, model)}
               isLatestAssistant={isLatestAssistant}
               isSidebarOpen={isSidebarOpen}

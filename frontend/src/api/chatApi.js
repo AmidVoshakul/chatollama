@@ -74,6 +74,15 @@ export async function stopGeneration(chatId) {
     await axios.post(`/api/chats/${chatId}/stop`)
 }
 
+// Генерация ответа без создания сообщения пользователя
+export async function generateResponse(chatId, model, prompt) {
+    const {data} = await axios.post(`/api/chats/${chatId}/generate`, {
+        model,
+        prompt,
+    })
+    return data
+}
+
 // Удаление сообщения
 export async function deleteMessage(messageId) {
     await axios.delete(`/api/messages/${messageId}`)
