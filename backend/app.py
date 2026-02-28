@@ -10,6 +10,7 @@ from typing import List, Optional
 
 from fastapi import FastAPI, HTTPException, Query, Body
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from sqlmodel import SQLModel, Session, create_engine, select, delete
 import httpx
 
@@ -359,6 +360,75 @@ def send_message(chat_id: int, msg: MessageCreate):
         session.refresh(bot_msg)
         logger.info("Saved assistant message id=%s for chat=%s", bot_msg.id, chat_id)
         return bot_msg
+
+
+@app.post("/api/chats/{chat_id}/messages/stream")
+def send_message_stream(chat_id: int, msg: MessageCreate):
+    """
+    Streaming endpoint - sends user message, then streams assistant response via SSE.
+    """
+    async def event_generator():
+        with Session(engine) as session:
+            if not session.get(Chat, chat_id):
+                yield "data: error:Chat not found\n\n"
+                return
+
+            user_msg = Message(chat_id=chat_id, role=msg.role, content=msg.content, model=msg.model)
+            session.add(user_msg)
+            session.commit()
+            session.refresh(user_msg)
+            logger.info("Inserted user message id=%s (streaming)", user_msg.id)
+
+        with Session(engine) as session:
+            history = session.exec(select(Message).where(Message.chat_id == chat_id).order_by(Message.created_at)).all()
+        prompt = "\n".join(f"{m.role}: {m.content}" for m in history)
+        logger.info("Calling model for chat %s (streaming, prompt len=%d)", chat_id, len(prompt))
+
+        url = f"{OLLAMA_HOST}/api/generate"
+        payload = {"model": msg.model, "prompt": prompt, "stream": True}
+        headers = {"Accept": "application/x-ndjson", "Content-Type": "application/json"}
+
+        full_response = ""
+        assistant_id = None
+
+        try:
+            import httpx
+            import json
+            with httpx.stream("POST", url, json=payload, headers=headers, timeout=180.0) as response:
+                if response.status_code != 200:
+                    error_msg = f"Model error: {response.status_code}"
+                    yield f"data: error:{error_msg}\n\n"
+                    return
+
+                for line in response.iter_lines():
+                    if not line:
+                        continue
+                    try:
+                        data = json.loads(line)
+                        if data.get("done"):
+                            break
+                        token = data.get("response", "")
+                        if token:
+                            full_response += token
+                            yield f"data: chunk:{token}\n\n"
+                    except json.JSONDecodeError:
+                        continue
+        except Exception as e:
+            logger.exception("Streaming error")
+            yield f"data: error:{str(e)}\n\n"
+            return
+
+        with Session(engine) as session:
+            bot_msg = Message(chat_id=chat_id, role="assistant", content=full_response, model=msg.model)
+            session.add(bot_msg)
+            session.commit()
+            session.refresh(bot_msg)
+            assistant_id = bot_msg.id
+            logger.info("Saved assistant message id=%s for chat=%s (streaming)", bot_msg.id, chat_id)
+
+        yield f"data: done:{assistant_id}\n\n"
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 
 @app.post("/api/chats/{chat_id}/stop", status_code=200)

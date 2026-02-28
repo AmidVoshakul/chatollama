@@ -44,7 +44,7 @@ fi
 
 # Запуск backend
 echo "Запуск backend..."
-uvicorn app:app --reload --host 0.0.0.0 --port 8000 > /dev/null 2>&1 &
+uvicorn app:app --reload --host 0.0.0.0 --port 8001 > /dev/null 2>&1 &
 cd ..
 
 # Установка и запуск frontend

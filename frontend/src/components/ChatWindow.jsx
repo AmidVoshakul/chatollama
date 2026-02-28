@@ -14,6 +14,7 @@ import {
 import {
   fetchMessages,
   sendUserMessage,
+  sendUserMessageStream,
   deleteMessage as apiDeleteMessage,
   editMessage as apiEditMessage,
   regenerateAssistantMessage,
@@ -113,14 +114,16 @@ export default function ChatWindow({
     }
   }
 
-  // Send a new user message
+  // Send a new user message with streaming
   async function sendMessage() {
     const text = input.trim()
     if (!text || isGenerating || !chat?.id) return
     const tempId = `temp-${Date.now()}`
+    const streamId = `stream-${Date.now()}`
     setMessages(prev => [
       ...prev,
       { id: tempId, role: 'user', content: text, _isTemp: true },
+      { id: streamId, role: 'assistant', content: '', _isStreaming: true },
     ])
     setInput('')
     if (textareaRef.current) textareaRef.current.style.height = 'auto'
@@ -134,9 +137,47 @@ export default function ChatWindow({
       80
     )
     try {
-      await sendUserMessage(chat.id, text, model)
-      await fetchMessagesForChat(chat.id)
-      setTimeout(() => setIsGenerating(false), 120)
+      await sendUserMessageStream(
+        chat.id,
+        text,
+        model,
+        (chunk) => {
+          setMessages(prev =>
+            prev.map(m =>
+              m.id === streamId
+                ? { ...m, content: m.content + chunk }
+                : m
+            )
+          )
+          setTimeout(
+            () =>
+              bottomRef.current?.scrollIntoView({
+                behavior: 'smooth',
+                block: 'end',
+              }),
+            50
+          )
+        },
+        (messageId) => {
+          setMessages(prev =>
+            prev.map(m =>
+              m.id === streamId
+                ? { ...m, _isStreaming: false, id: messageId }
+                : m
+            )
+          )
+          setIsGenerating(false)
+        },
+        (error) => {
+          setMessages(prev =>
+            prev.map(m =>
+              m.id === streamId ? { ...m, _error: true, _isStreaming: false } : m
+            )
+          )
+          setToast?.({ type: 'error', text: error || 'Ошибка генерации' })
+          setIsGenerating(false)
+        }
+      )
     } catch (err) {
       setMessages(prev =>
         prev.map(m => (m.id === tempId ? { ...m, _error: true } : m))
@@ -340,6 +381,7 @@ export default function ChatWindow({
               timestamp={msg.created_at}
               isTemp={msg._isTemp}
               hasError={msg._error}
+              isStreaming={msg._isStreaming}
               onDelete={() => deleteMessage(msg.id)}
               onEdit={async (newContent, onFinish) => {
                 await editMessage(msg.id, newContent)

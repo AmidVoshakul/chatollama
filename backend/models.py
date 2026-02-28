@@ -1,20 +1,3 @@
-# from sqlmodel import SQLModel, Field, Relationship
-# from typing import List, Optional
-
-# class Chat(SQLModel, table=True):
-#     id: Optional[int] = Field(default=None, primary_key=True)
-#     title: str
-#     messages: List["Message"] = Relationship(back_populates="chat")
-
-# class Message(SQLModel, table=True):
-#     id: Optional[int] = Field(default=None, primary_key=True)
-#     chat_id: int = Field(foreign_key="chat.id")
-#     role: str  # "user" или "assistant"
-#     content: str
-
-#     chat: Optional[Chat] = Relationship(back_populates="messages")
-# backend/models.py
-
 from typing import List, Optional
 from datetime import datetime
 from sqlmodel import SQLModel, Field, Relationship
