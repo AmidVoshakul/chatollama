@@ -213,6 +213,29 @@ input:focus,
   color: var(--text-main);
 }
 
+/* User message styling */
+.message-user-content {
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.user-message-wrapper {
+  display: flex;
+  flex-direction: column;
+}
+
+/* User message bubble gradient */
+.user-message-bubble {
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.12) 0%, rgba(79, 70, 229, 0.08) 100%);
+  border: 1px solid rgba(124, 58, 237, 0.15);
+}
+
+.theme-light .user-message-bubble {
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.06) 0%, rgba(79, 70, 229, 0.03) 100%);
+  border: 1px solid rgba(124, 58, 237, 0.1);
+}
+
 /* Headings - modern styling */
 .message-markdown h1 {
   font-size: 1.75em;
