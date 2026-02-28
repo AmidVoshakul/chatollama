@@ -2,7 +2,6 @@
 import React, {useMemo, useCallback} from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import rehypeHighlight from 'rehype-highlight'
 import CodeBlock from './CodeBlock'
 
 export default function AnimatedMessage({
@@ -61,10 +60,11 @@ export default function AnimatedMessage({
                     <div key={idx} className={className} style={style}>
                         <ReactMarkdown
                             remarkPlugins={[remarkGfm]}
-                            rehypePlugins={[rehypeHighlight]}
                             components={{
                                 // вместо <pre> ловим <code>
                                 code({inline, className, children, ...props}) {
+                                    const language = className ? className.replace('language-', '') : ''
+                                    const codeText = String(children).replace(/\n$/, '')
                                     if (inline) {
                                         return (
                                             <code className={className} {...props}>
@@ -75,16 +75,42 @@ export default function AnimatedMessage({
                                     const flattenFn = flattenChildrenToString || fallbackFlatten
                                     return (
                                         <CodeBlock
+                                            language={language}
+                                            codeText={codeText}
                                             isSidebarOpen={isSidebarOpen}
                                             flattenChildrenToString={flattenFn}
                                         >
-                                            {children}
+                                            {codeText}
                                         </CodeBlock>
                                     )
                                 },
+                                pre({children}) {
+                                    return <>{children}</>
+                                },
                                 // убираем параграф, чтобы не было div внутри p
                                 p({children, ...props}) {
-                                    return <div {...props}>{children}</div>
+                                    const getTextContent = (node) => {
+                                        if (!node) return '';
+                                        if (typeof node === 'string') return node;
+                                        if (typeof node === 'number') return String(node);
+                                        if (Array.isArray(node)) return node.map(getTextContent).join('');
+                                        if (node.props?.children) return getTextContent(node.props.children);
+                                        return '';
+                                    };
+                                    const text = getTextContent(children);
+                                    if (text.includes('🔹') || text.includes('•') || text.includes('▸')) {
+                                        const items = text.split(/(?:🔹|•|▸)\s*/).filter(Boolean);
+                                        if (items.length > 1) {
+                                            return (
+                                                <ul className="my-2 ml-2">
+                                                    {items.map((item, i) => (
+                                                        <li key={i} className="my-1">{item.trim()}</li>
+                                                    ))}
+                                                </ul>
+                                            );
+                                        }
+                                    }
+                                    return <div {...props}>{children}</div>;
                                 },
                             }}
                         >

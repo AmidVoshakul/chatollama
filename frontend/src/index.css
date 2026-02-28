@@ -209,21 +209,201 @@ input:focus,
 .message-markdown {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", "Segoe UI Mono", "Courier New", monospace;
   font-size: 16px;
-  line-height: 1.45;
+  line-height: 1.6;
   color: var(--text-main);
 }
+
+/* Headings - modern styling */
+.message-markdown h1 {
+  font-size: 1.75em;
+  font-weight: 700;
+  margin: 1.25em 0 0.5em;
+  padding-bottom: 0.35em;
+  border-bottom: 2px solid var(--border-color);
+  color: var(--text-main);
+  letter-spacing: -0.02em;
+}
+.message-markdown h2 {
+  font-size: 1.45em;
+  font-weight: 600;
+  margin: 1.15em 0 0.45em;
+  padding-bottom: 0.25em;
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-main);
+  letter-spacing: -0.01em;
+}
+.message-markdown h3 {
+  font-size: 1.2em;
+  font-weight: 600;
+  margin: 1em 0 0.4em;
+  color: var(--text-main);
+}
+.message-markdown h4, .message-markdown h5, .message-markdown h6 {
+  font-size: 1em;
+  font-weight: 600;
+  margin: 0.9em 0 0.35em;
+  color: var(--text-main);
+}
+
+/* Paragraphs and spacing */
+.message-markdown p {
+  margin: 0.65em 0;
+}
+.message-markdown p:first-child { margin-top: 0; }
+.message-markdown p:last-child { margin-bottom: 0; }
+
+/* Links */
+.message-markdown a {
+  color: #60a5fa;
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.15s ease;
+}
+.message-markdown a:hover {
+  border-bottom-color: #60a5fa;
+}
+.theme-light .message-markdown a { color: #2563eb; }
+
+/* Lists - modern styling */
+.message-markdown ul, .message-markdown ol {
+  margin: 0.65em 0;
+  padding-left: 1.75em;
+  display: block;
+}
+.message-markdown ul { list-style-type: disc; }
+.message-markdown ul ul { list-style-type: circle; }
+.message-markdown ul ul ul { list-style-type: square; }
+.message-markdown ol { list-style-type: decimal; }
+.message-markdown li {
+  margin: 0.5em 0;
+  padding-left: 0.4em;
+  line-height: 1.6;
+  display: list-item;
+  text-align: left;
+  word-break: break-word;
+}
+.message-markdown li::marker {
+  color: #7c3aed;
+  opacity: 0.9;
+  font-weight: 600;
+}
+.message-markdown li input[type="checkbox"] {
+  margin-right: 0.5em;
+  accent-color: #7c3aed;
+  transform: scale(1.1);
+}
+
+/* Handle inline lists like "🔹 Item1 🔹 Item2" - split by 🔹 or • */
+.message-markdown li:empty::before {
+  content: none;
+}
+.message-markdown li:has(🔹)::before,
+.message-markdown li:has(•)::before {
+  content: none;
+}
+
+/* Images in markdown */
+.message-markdown img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 10px;
+  margin: 0.75em 0;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.1);
+  border: 1px solid var(--border-color);
+}
+.message-markdown img:hover {
+  box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+  transition: box-shadow 0.2s ease;
+}
+
+/* Blockquotes - modern styled */
+.message-markdown blockquote {
+  margin: 0.85em 0;
+  padding: 0.5em 0 0.5em 1.1em;
+  border-left: 4px solid #7c3aed;
+  background: rgba(124, 58, 237, 0.06);
+  border-radius: 0 6px 6px 0;
+  color: var(--text-muted);
+  font-style: italic;
+}
+.message-markdown blockquote p {
+  margin: 0.4em 0;
+}
+.theme-light .message-markdown blockquote {
+  background: rgba(91, 33, 182, 0.05);
+  border-left-color: #5b21b6;
+}
+
+/* Horizontal rule */
+.message-markdown hr {
+  border: none;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--border-color), transparent);
+  margin: 1.5em 0;
+}
+
+/* Tables - modern styling */
+.message-markdown table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1em 0;
+  font-size: 0.92em;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+}
+.message-markdown th {
+  background: var(--bg-variant);
+  font-weight: 600;
+  text-align: left;
+  padding: 0.65em 0.85em;
+  border-bottom: 2px solid var(--border-color);
+  color: var(--text-main);
+}
+.message-markdown td {
+  padding: 0.6em 0.85em;
+  border-bottom: 1px solid var(--border-color);
+}
+.message-markdown tr:last-child td { border-bottom: none; }
+.message-markdown tr:nth-child(even) { background: rgba(0,0,0,0.02); }
+.theme-light .message-markdown tr:nth-child(even) { background: rgba(0,0,0,0.03); }
+
+/* Strong and emphasis */
+.message-markdown strong {
+  font-weight: 600;
+  color: var(--text-main);
+}
+.message-markdown em {
+  font-style: italic;
+  color: var(--text-muted);
+}
+.message-markdown del {
+  text-decoration: line-through;
+  opacity: 0.7;
+}
+
+/* Inline code */
+.message-markdown code:not(pre code) {
+  background: var(--inline-code-bg);
+  padding: 0.15rem 0.4rem;
+  border-radius: 5px;
+  font-size: 0.9em;
+  color: #f472b6;
+  border: 1px solid var(--inline-code-border);
+  font-weight: 500;
+}
+.theme-dark .message-markdown code:not(pre code) { color: #e879f9; }
+.theme-light .message-markdown code:not(pre code) { color: #be185d; }
 
 /* Code block container */
 .message-markdown pre,
 .message-markdown pre.hljs {
-  background: var(--code-bg) !important;
+  background: transparent !important;
   color: var(--code-text) !important;
   padding: 0;
-  border-radius: 8px;
-  overflow: hidden;
-  border: 1px solid var(--code-border);
-  box-shadow: 0 2px 6px rgba(0,0,0,0.06);
-  margin: 0.75rem 0;
+  margin: 0;
+  border: none;
+  overflow: visible;
 }
 
 /* Inner wrapper (.p-4 used in Message.jsx) */
@@ -269,9 +449,9 @@ input:focus,
 
 /* Hover effects */
 .message-markdown pre:hover {
-  box-shadow: 0 4px 10px rgba(0,0,0,0.08);
-  transform: translateY(-1px);
-  transition: all 120ms ease;
+  box-shadow: 0 8px 25px rgba(0,0,0,0.12);
+  transform: translateY(-2px);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .message-markdown .hljs-line { padding: 0 8px; }
 .message-markdown .hljs-line:hover { background: rgba(0,0,0,0.02); }

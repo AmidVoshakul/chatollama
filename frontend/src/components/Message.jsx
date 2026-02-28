@@ -2,7 +2,6 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import rehypeHighlight from 'rehype-highlight'
 import 'highlight.js/styles/github-dark.css'
 import CodeBlock from './CodeBlock'
 import AnimatedMessage from './AnimatedMessage'
@@ -126,7 +125,7 @@ export default function Message({
         : 'text-left pl-6'
 
     const bubbleClasses = [
-        'rounded-lg overflow-hidden relative',
+        'rounded-xl overflow-hidden relative shadow-sm',
         isEditing
             ? 'w-full'
             : role === 'user'
@@ -157,10 +156,10 @@ export default function Message({
         <div className={`my-4 ${containerAlignment}`}>
             <div className={bubbleClasses}>
                 {/* header */}
-                <div className="flex items-center px-3 py-2 text-xs text-[var(--text-muted)] relative">
+                <div className="flex items-center px-4 py-2.5 text-xs text-[var(--text-muted)] relative">
                     <button
                         onClick={() => setShowActions(v => !v)}
-                        className="hover:bg-[rgba(0,0,0,0.06)] p-1 rounded transition mr-2"
+                        className="hover:bg-[rgba(0,0,0,0.06)] p-1.5 rounded-lg transition-all duration-200 hover:scale-110"
                         aria-label="Открыть действия"
                         aria-expanded={showActions}
                     >
@@ -172,7 +171,7 @@ export default function Message({
                     </button>
 
                     {role === 'assistant' && model && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gradient-to-r from-purple-500/10 to-indigo-500/10 border border-purple-500/20 text-purple-300 text-[10px] font-medium mr-2">
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r from-purple-500/15 to-indigo-500/15 border border-purple-500/25 text-purple-300 text-[10px] font-semibold mr-3 shadow-sm">
                             <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
                                 <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
                             </svg>
@@ -184,16 +183,16 @@ export default function Message({
                     {showActions && (
                         <div
                             ref={tooltipRef}
-                            className="absolute top-8 left-3 bg-[var(--bg-surface)] border border-theme rounded-lg shadow-lg p-2 z-20"
+                            className="absolute top-10 left-3 bg-[var(--bg-surface)] border border-theme rounded-xl shadow-xl p-2 z-20 backdrop-blur-sm bg-opacity-95"
                         >
-                            <div className="flex gap-3 text-[var(--text-main)] text-sm">
+                            <div className="flex gap-2 text-[var(--text-main)] text-sm bg-[var(--bg-variant)] rounded-lg p-1">
                                 {/* delete */}
                                 <button
                                     onClick={onDelete}
                                     title="Удалить"
-                                    className="text-[var(--text-muted)] hover:text-red-400 transition-transform hover:scale-110"
+                                    className="p-2 rounded-lg text-[var(--text-muted)] hover:text-red-400 hover:bg-red-500/10 transition-all duration-200"
                                 >
-                                    <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                                         <path d="M6 7h12v2H6zM9 9h6v10H9z" />
                                     </svg>
                                 </button>
@@ -202,16 +201,18 @@ export default function Message({
                                 <button
                                     onClick={() => handleCopy(content)}
                                     title="Копировать"
-                                    className={`text-[var(--text-muted)] transition-transform duration-200 ${
-                                        copied ? 'scale-110 text-green-400' : 'hover:text-blue-400'
+                                    className={`p-2 rounded-lg transition-all duration-200 ${
+                                        copied 
+                                            ? 'text-green-400 bg-green-500/10 scale-110' 
+                                            : 'text-[var(--text-muted)] hover:text-blue-400 hover:bg-blue-500/10'
                                     }`}
                                 >
                                     {copied ? (
-                                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                                             <path d="M20.285 6.709l-11.285 11.285-5.285-5.285 1.415-1.414 3.87 3.87 9.87-9.87z" />
                                         </svg>
                                     ) : (
-                                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                                             <path d="M16 1H4a2 2 0 0 0-2 2v14h2V3h12V1zM20 5H8a2 2 0 0 0-2 2v16h14a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2z" />
                                         </svg>
                                     )}
@@ -226,9 +227,9 @@ export default function Message({
                                         setTimeout(() => textareaRef.current?.focus(), 50)
                                     }}
                                     title="Редактировать"
-                                    className="text-[var(--text-muted)] hover:text-yellow-400 transition-transform hover:scale-110"
+                                    className="p-2 rounded-lg text-[var(--text-muted)] hover:text-yellow-400 hover:bg-yellow-500/10 transition-all duration-200"
                                 >
-                                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                                         <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.42l-2.34-2.34a1 1 0 0 0-1.42 0l-1.83 1.83 3.75 3.75 1.84-1.82z" />
                                     </svg>
                                 </button>
@@ -239,8 +240,10 @@ export default function Message({
                                         onClick={handleRegenerate}
                                         disabled={isGenerating}
                                         title="Перегенерировать"
-                                        className={`text-[var(--text-muted)] hover:text-purple-400 transition-transform hover:scale-110 ${
-                                            isGenerating ? 'opacity-70 cursor-not-allowed' : ''
+                                        className={`p-2 rounded-lg transition-all duration-200 ${
+                                            isGenerating 
+                                                ? 'text-purple-400 opacity-70 cursor-not-allowed' 
+                                                : 'text-[var(--text-muted)] hover:text-purple-400 hover:bg-purple-500/10'
                                         }`}
                                     >
                                         <svg
@@ -258,7 +261,7 @@ export default function Message({
                 </div>
 
                 {/* content / edit */}
-                <div className="p-3" style={{ '--code-max-width': codeMaxWidth }}>
+                <div className="p-4 pt-3" style={{ '--code-max-width': codeMaxWidth }}>
                     {isEditing ? (
                         <textarea
                             ref={textareaRef}
@@ -286,25 +289,50 @@ export default function Message({
                         <div className="message-markdown" style={{ maxWidth: '100%' }}>
                             <ReactMarkdown
                                 remarkPlugins={[remarkGfm]}
-                                rehypePlugins={[rehypeHighlight]}
                                 components={{
+                                    p({children}) {
+                                        const getTextContent = (node) => {
+                                            if (!node) return '';
+                                            if (typeof node === 'string') return node;
+                                            if (typeof node === 'number') return String(node);
+                                            if (Array.isArray(node)) return node.map(getTextContent).join('');
+                                            if (node.props?.children) return getTextContent(node.props.children);
+                                            return '';
+                                        };
+                                        const text = getTextContent(children);
+                                        if (text.includes('🔹') || text.includes('•') || text.includes('▸')) {
+                                            const items = text.split(/(?:🔹|•|▸)\s*/).filter(Boolean);
+                                            if (items.length > 1) {
+                                                return (
+                                                    <ul className="my-2 ml-2">
+                                                        {items.map((item, i) => (
+                                                            <li key={i} className="my-1">{item.trim()}</li>
+                                                        ))}
+                                                    </ul>
+                                                );
+                                            }
+                                        }
+                                        return <p className="my-2">{children}</p>;
+                                    },
                                     code({ inline, className = '', children, ...props }) {
                                         const language = className.replace('language-', '')
+                                        const codeText = String(children).replace(/\n$/, '')
                                         if (inline) {
                                             return (
-                                                <code className={`hljs ${className}`} {...props}>
+                                                <code className={className} {...props}>
                                                     {children}
                                                 </code>
                                             )
                                         }
                                         return (
                                             <CodeBlock
-                                                className={`hljs ${className}`}
+                                                className={className}
                                                 language={language}
+                                                codeText={codeText}
                                                 isSidebarOpen={isSidebarOpen}
                                                 flattenChildrenToString={flattenChildrenToString}
                                             >
-                                                {String(children).replace(/\n$/, '')}
+                                                {codeText}
                                             </CodeBlock>
                                         )
                                     },
