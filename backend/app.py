@@ -270,10 +270,10 @@ def list_chats():
 @app.delete("/api/chats/{chat_id}", status_code=204)
 def delete_chat(chat_id: int):
     with Session(engine) as session:
-        session.exec(delete(Message).where(Message.chat_id == chat_id))
         chat = session.get(Chat, chat_id)
         if not chat:
             raise HTTPException(status_code=404, detail="Chat not found")
+        session.exec(delete(Message).where(Message.chat_id == chat_id))
         session.delete(chat)
         session.commit()
 

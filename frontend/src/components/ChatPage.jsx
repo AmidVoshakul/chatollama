@@ -29,6 +29,7 @@ export default function ChatPage({openSettingsModal, theme, transparentMode}) {
 
     const pendingCreateRef = useRef(null)
     const mountedRef = useRef(false)
+    const initialChatCreatedRef = useRef(false)
 
     // Загрузка моделей и чатов при монтировании
     useEffect(() => {
@@ -49,7 +50,8 @@ export default function ChatPage({openSettingsModal, theme, transparentMode}) {
                 if (!mountedRef.current) return
 
                 if (!Array.isArray(cs) || cs.length === 0) {
-                    // если чатов нет — создаём минимальный начальный чат
+                    if (initialChatCreatedRef.current) return
+                    initialChatCreatedRef.current = true
                     const {data: created} = await axios.post('/api/chats', {title: 'Новый чат'})
                     const {data: updatedChats} = await axios.get('/api/chats')
                     const normalized = Array.isArray(updatedChats) ? updatedChats : (created ? [created] : [])
