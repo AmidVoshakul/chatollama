@@ -370,7 +370,7 @@ export default function Message({
                                             isGenerating={!thoughtsEnded}
                                         />
                                     )}
-                                    {!streamingThought && isStreaming && (
+                                    {!streamingThought && isStreaming && !content && (
                                         <LoadingDots />
                                     )}
                                     <AnimatedMessage

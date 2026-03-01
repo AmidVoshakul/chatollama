@@ -130,7 +130,7 @@ export default function CodeBlock({children, codeText, language, isSidebarOpen, 
                 <div className="w-full min-w-0 overflow-hidden" style={{maxWidth}}>
                     <div className="overflow-x-auto w-full">
                         <div 
-                            className="p-4 text-sm font-mono whitespace-pre max-w-full leading-relaxed"
+                            className="p-6 text-sm font-mono whitespace-pre max-w-full leading-relaxed"
                             dangerouslySetInnerHTML={{__html: highlightedCode || text}}
                         />
                     </div>
