@@ -389,6 +389,7 @@ def send_message_stream(chat_id: int, msg: MessageCreate):
         headers = {"Accept": "application/x-ndjson", "Content-Type": "application/json"}
 
         full_response = ""
+        full_thinking = ""
         assistant_id = None
 
         try:
@@ -408,6 +409,10 @@ def send_message_stream(chat_id: int, msg: MessageCreate):
                         if data.get("done"):
                             break
                         token = data.get("response", "")
+                        thinking = data.get("thinking", "")
+                        if thinking:
+                            full_thinking += thinking
+                            yield f"data: thought:{thinking}\n\n"
                         if token:
                             full_response += token
                             yield f"data: chunk:{token}\n\n"

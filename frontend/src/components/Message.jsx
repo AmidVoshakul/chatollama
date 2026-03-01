@@ -5,7 +5,9 @@ import remarkGfm from 'remark-gfm'
 import 'highlight.js/styles/github-dark.css'
 import CodeBlock from './CodeBlock'
 import AnimatedMessage from './AnimatedMessage'
+import ThoughtBubble from './ThoughtBubble'
 import LoadingDots from './LoadingDots'
+
 
 export default function Message({
     role,
@@ -19,6 +21,8 @@ export default function Message({
     hasError,
     isSidebarOpen = true,
     isStreaming = false,
+    streamingThought,
+    thoughtsEnded = false,
 }) {
     const [showActions, setShowActions] = useState(false)
     const [copied, setCopied] = useState(false)
@@ -421,10 +425,14 @@ export default function Message({
                                 />
                             ) : role === 'assistant' ? (
                                 <>
-                                    {isStreaming && !content && (
-                                        <div className="py-2">
-                                            <LoadingDots />
-                                        </div>
+                                    {streamingThought && (
+                                        <ThoughtBubble
+                                            content={streamingThought}
+                                            isGenerating={!thoughtsEnded}
+                                        />
+                                    )}
+                                    {!streamingThought && isStreaming && (
+                                        <LoadingDots />
                                     )}
                                     <AnimatedMessage
                                         content={content}

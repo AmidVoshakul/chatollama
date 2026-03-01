@@ -18,7 +18,7 @@ export async function sendUserMessage(chatId, text, model) {
 }
 
 // Streaming отправка сообщения - использует fetch с ReadableStream
-export async function sendUserMessageStream(chatId, text, model, onChunk, onDone, onError) {
+export async function sendUserMessageStream(chatId, text, model, onChunk, onDone, onError, onThought) {
     const response = await fetch(`/api/chats/${chatId}/messages/stream`, {
         method: 'POST',
         headers: {
@@ -54,6 +54,10 @@ export async function sendUserMessageStream(chatId, text, model, onChunk, onDone
                 if (data.startsWith('error:')) {
                     onError?.(data.slice(6))
                     return
+                }
+                if (data.startsWith('thought:')) {
+                    onThought?.(data.slice(8))
+                    continue
                 }
                 if (data.startsWith('chunk:')) {
                     onChunk?.(data.slice(6))

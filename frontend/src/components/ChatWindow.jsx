@@ -1,23 +1,21 @@
 // src/components/ChatWindow.jsx
 import React, { useEffect, useRef, useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { FiCpu, FiCheck } from 'react-icons/fi'
+import { FiCpu } from 'react-icons/fi'
 import Message from './Message'
+import AssistantMessage from './AssistantMessage'
 import ThoughtBubble from './ThoughtBubble'
 import {
   isTempId,
   extractThoughtFromContent,
   getShownThoughtIds,
-  addShownThoughtId,
   removeShownThoughtIdForMessage,
 } from '../utils/chatUtils'
 import {
   fetchMessages,
-  sendUserMessage,
   sendUserMessageStream,
   deleteMessage as apiDeleteMessage,
   editMessage as apiEditMessage,
-  regenerateAssistantMessage,
   regenerateAssistantMessageStream,
   stopGeneration,
   generateResponse,
@@ -38,6 +36,8 @@ export default function ChatWindow({
   const [messages, setMessages] = useState([])
   const [input, setInput] = useState('')
   const [dropdownOpen, setDropdownOpen] = useState(false)
+  const [streamingThought, setStreamingThought] = useState('')
+  const [thoughtsEnded, setThoughtsEnded] = useState(false)
 
   const bottomRef = useRef(null)
   const topRef = useRef(null)
@@ -116,85 +116,6 @@ export default function ChatWindow({
     }
   }
 
-  // Send a new user message with streaming
-  async function sendMessage() {
-    const text = input.trim()
-    if (!text || isGenerating || !chat?.id) return
-    const tempId = `temp-${Date.now()}`
-    const streamId = `stream-${Date.now()}`
-    const now = new Date().toISOString()
-    const selectedModel = model
-    setMessages(prev => [
-      ...prev,
-      { id: tempId, role: 'user', content: text, _isTemp: true, created_at: now, model: selectedModel },
-      { id: streamId, role: 'assistant', content: '', _isStreaming: true, created_at: now, model: selectedModel },
-    ])
-    setInput('')
-    if (textareaRef.current) textareaRef.current.style.height = 'auto'
-    setIsGenerating(true)
-    setTimeout(
-      () =>
-        bottomRef.current?.scrollIntoView({
-          behavior: 'smooth',
-          block: 'end',
-        }),
-      80
-    )
-    try {
-      await sendUserMessageStream(
-        chat.id,
-        text,
-        model,
-        (chunk) => {
-          setMessages(prev =>
-            prev.map(m =>
-              m.id === streamId
-                ? { ...m, content: m.content + chunk }
-                : m
-            )
-          )
-          setTimeout(
-            () =>
-              bottomRef.current?.scrollIntoView({
-                behavior: 'smooth',
-                block: 'end',
-              }),
-            50
-          )
-        },
-        (messageId) => {
-          setMessages(prev =>
-            prev.map(m =>
-              m.id === streamId
-                ? { ...m, _isStreaming: false, id: messageId }
-                : m
-            )
-          )
-          setIsGenerating(false)
-        },
-        (error) => {
-          setMessages(prev =>
-            prev.map(m =>
-              m.id === streamId ? { ...m, _error: true, _isStreaming: false } : m
-            )
-          )
-          setToast?.({ type: 'error', text: error || 'Ошибка генерации' })
-          setIsGenerating(false)
-        }
-      )
-    } catch (err) {
-      setMessages(prev =>
-        prev.map(m => (m.id === tempId ? { ...m, _error: true } : m))
-      )
-      if (err.response?.status === 404) {
-        onChatNotFound?.()
-      } else {
-        setToast?.({ type: 'error', text: 'Ошибка отправки сообщения' })
-      }
-      setIsGenerating(false)
-    }
-  }
-
   // Stop generation
   async function stopGenerationHandler() {
     if (!chat?.id) return
@@ -236,61 +157,87 @@ export default function ChatWindow({
     }
   }
 
-  // Edit message and regenerate response
-  async function editAndRegenerate(id, newContent) {
-    if (isTempId(id)) {
-      setMessages(prev =>
-        prev.map(m => (m.id === id ? { ...m, content: newContent } : m))
-      )
-      return
-    }
+  // Send a new user message with streaming
+  async function sendMessage() {
+    const text = input.trim()
+    if (!text || isGenerating || !chat?.id) return
+    const tempId = `temp-${Date.now()}`
+    const streamId = `stream-${Date.now()}`
+    const now = new Date().toISOString()
+    const selectedModel = model
+    setStreamingThought(null)
+    setStreamingThought('')
+    setThoughtsEnded(false)
+    setMessages(prev => [
+      ...prev,
+      { id: tempId, role: 'user', content: text, _isTemp: true, created_at: now, model: selectedModel },
+      { id: streamId, role: 'assistant', content: '', _isStreaming: true, created_at: now, model: selectedModel },
+    ])
+    setInput('')
+    if (textareaRef.current) textareaRef.current.style.height = 'auto'
+    setIsGenerating(true)
+    setTimeout(
+      () =>
+        bottomRef.current?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'end',
+        }),
+      80
+    )
+    let accumulatedContent = ''
     try {
-      const msgIndex = messages.findIndex(m => m.id === id)
-      const userMsg = messages[msgIndex]
-      const modelToUse = userMsg?.model || model
-      
-      await apiEditMessage(id, newContent)
-      
-      if (msgIndex >= 0) {
-        const msgsToDelete = messages.slice(msgIndex + 1)
-        for (const msg of msgsToDelete) {
-          if (!isTempId(msg.id)) {
-            await apiDeleteMessage(msg.id)
+      await sendUserMessageStream(
+        chat.id,
+        text,
+        model,
+        (chunk) => {
+          accumulatedContent += chunk
+          
+          // При первом чанке контента - останавливаем shimmer мыслей
+          if (accumulatedContent.length > 0) {
+            setThoughtsEnded(true)
           }
-        }
-        setMessages(prev => prev.slice(0, msgIndex + 1))
-      }
-      
-      const updatedMessages = await fetchMessagesForChat(chat.id)
-      
-      const prompt = updatedMessages
-        .map(m => `${m.role}: ${m.content}`)
-        .join('\n')
-      
-      setIsGenerating(true)
-      const streamId = `edit-${id}-${Date.now()}`
-      const now = new Date().toISOString()
-      setMessages(prev => [
-        ...prev,
-        { _isTemp: true, id: streamId, role: 'assistant', content: '', _isStreaming: true, model: modelToUse, created_at: now },
-      ])
-      
-      try {
-        const result = await generateResponse(chat.id, modelToUse, prompt)
-        
-        setMessages(prev => prev.filter(m => m.id !== streamId))
-        
-        const newMessages = await fetchMessagesForChat(chat.id)
-        setMessages(newMessages)
-        setIsGenerating(false)
-      } catch (err) {
-        setMessages(prev =>
-          prev.map(m =>
-            m.id === streamId ? { ...m, _error: true, _isStreaming: false } : m
+          
+          setMessages(prev =>
+            prev.map(m =>
+              m.id === streamId
+                ? { ...m, content: accumulatedContent }
+                : m
+            )
           )
-        )
-        setIsGenerating(false)
-      }
+          setTimeout(
+            () =>
+              bottomRef.current?.scrollIntoView({
+                behavior: 'smooth',
+                block: 'end',
+              }),
+            50
+          )
+        },
+        (messageId) => {
+          setMessages(prev =>
+            prev.map(m =>
+              m.id === streamId
+                ? { ...m, _isStreaming: false, id: messageId }
+                : m
+            )
+          )
+          setIsGenerating(false)
+        },
+        (error) => {
+          setMessages(prev =>
+            prev.map(m =>
+              m.id === streamId ? { ...m, _error: true, _isStreaming: false } : m
+            )
+          )
+          setToast?.({ type: 'error', text: error || 'Ошибка генерации' })
+          setIsGenerating(false)
+        },
+        (thought) => {
+          setThoughtsEnded(false)
+          setStreamingThought(prev => prev + thought)
+        }
+      )
     } catch {
       setToast?.({ type: 'error', text: 'Ошибка редактирования сообщения' })
     }
@@ -351,7 +298,7 @@ export default function ChatWindow({
             )
           )
         },
-        (messageId) => {
+        () => {
           setMessages(prev =>
             prev.map(m =>
               m._tempStreamId === streamId
@@ -401,9 +348,13 @@ export default function ChatWindow({
     if (!chat) {
       setMessages([])
       setInput('')
+      setStreamingThought('')
+      setThoughtsEnded(false)
       return
     }
     setInput('')
+    setStreamingThought('')
+    setThoughtsEnded(false)
     fetchMessagesForChat(chat.id)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chat?.id])
@@ -429,37 +380,7 @@ export default function ChatWindow({
         {messages.map((msg, idx) => {
           const isLast = idx === messages.length - 1
           const isLatestAssistant =
-            isLast && msg.role === 'assistant' && msg.type === 'text'
-
-          if (msg.type === 'thought') {
-            return (
-              <ThoughtBubble
-                key={msg.id}
-                content={msg.content}
-                isGenerating={isGenerating}
-                onFadeOut={() => {
-                  addShownThoughtId(msg.id)
-                  setMessages(prev =>
-                    prev
-                      .filter(m => m.type !== 'thought')
-                      .map(m =>
-                        m.hiddenWhileThought === msg.id
-                          ? { ...m, hiddenWhileThought: null }
-                          : m
-                      )
-                  )
-                  setTimeout(
-                    () =>
-                      bottomRef.current?.scrollIntoView({
-                        behavior: 'smooth',
-                        block: 'end',
-                      }),
-                    80
-                  )
-                }}
-              />
-            )
-          }
+            isLast && msg.role === 'assistant' && (msg._isStreaming || streamingThought)
 
           if (
             msg.role === 'assistant' &&
@@ -469,6 +390,40 @@ export default function ChatWindow({
             return null
           }
 
+          if (msg.type === 'thought') {
+            return (
+              <ThoughtBubble
+                key={msg.id}
+                content={msg.content}
+                isGenerating={false}
+              />
+            )
+          }
+
+          if (msg.role === 'assistant' && isLatestAssistant) {
+            return (
+              <AssistantMessage
+                key={msg.id}
+                content={msg.content}
+                model={msg.model}
+                timestamp={msg.created_at}
+                isTemp={msg._isTemp}
+                hasError={msg._error}
+                isStreaming={msg._isStreaming}
+                isLatestAssistant={isLatestAssistant}
+                isSidebarOpen={isSidebarOpen}
+                transparentMode={transparentMode}
+                setToast={setToast}
+                onDelete={() => deleteMessage(msg.id)}
+                onEdit={(newContent) => editMessage(msg.id, newContent)}
+                onEditAndRegenerate={(newContent) => editAndRegenerate(msg.id, newContent)}
+                onRegenerate={() => regenerateMessage(msg.id, model)}
+                streamingThought={streamingThought}
+                thoughtsEnded={thoughtsEnded}
+              />
+            )
+          }
+
           return (
             <Message
               key={msg.id}
@@ -476,7 +431,6 @@ export default function ChatWindow({
               content={msg.content}
               model={msg.model}
               timestamp={msg.created_at}
-              model={msg.model}
               isTemp={msg._isTemp}
               hasError={msg._error}
               isStreaming={msg._isStreaming}
