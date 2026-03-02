@@ -456,6 +456,10 @@ def send_message_stream(chat_id: int, msg: MessageCreate):
     stream_state = {"cancelled": False}
     active_streams[chat_id] = stream_state
     
+    full_response = ""
+    full_thinking = ""
+    assistant_id = None
+    
     async def event_generator():
         nonlocal full_response, full_thinking, assistant_id
         

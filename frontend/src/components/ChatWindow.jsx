@@ -119,16 +119,18 @@ export default function ChatWindow({
     }
   }
 
-  async function editMessage(id, newContent) {
+  async function editMessage(id, newContent, onSuccess) {
     if (isTempId(id)) {
       setMessages(prev =>
         prev.map(m => (m.id === id ? { ...m, content: newContent } : m))
       )
+      onSuccess?.()
       return
     }
     try {
       await apiEditMessage(id, newContent)
       await fetchMessagesForChat(chat.id)
+      onSuccess?.()
     } catch {
       setToast?.({ type: 'error', text: 'Ошибка редактирования сообщения' })
     }

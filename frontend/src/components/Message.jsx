@@ -252,7 +252,7 @@ export default function Message({
                             <MessageEditor
                                 editText={editText}
                                 setEditText={setEditText}
-                                onSubmit={handleCancelEdit}
+                                onSubmit={submitEdit}
                                 onCancel={handleCancelEdit}
                                 onSubmitAndRegenerate={handleCancelEdit}
                                 submitEdit={submitEdit}
