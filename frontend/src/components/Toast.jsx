@@ -1,46 +1,103 @@
 // src/components/Toast.jsx
-import React, {useEffect, useState} from 'react'
+import React, { useEffect, useState } from 'react'
+import { FaCheck, FaExclamationTriangle, FaInfo } from 'react-icons/fa'
 
-export default function Toast({toast, onClose}) {
+export default function Toast({ toast, onClose }) {
     const [visible, setVisible] = useState(false)
+    const [leave, setLeave] = useState(false)
 
     useEffect(() => {
         if (!toast) return
         setVisible(true)
+        setLeave(false)
+        
+        const displayTime = 3000
         const timeout = setTimeout(() => {
-            setVisible(false)
-            setTimeout(() => onClose?.(), 300) // дождаться fade-out
-        }, 3000)
+            setLeave(true)
+            setTimeout(() => {
+                onClose?.()
+                setVisible(false)
+            }, 300)
+        }, displayTime)
+        
         return () => clearTimeout(timeout)
     }, [toast, onClose])
 
     if (!toast) return null
 
-    const base =
-        'fixed bottom-6 right-6 z-50 max-w-sm w-full px-6 py-4 rounded-2xl shadow-2xl text-sm font-medium text-white backdrop-blur-xl transition-all duration-300 pointer-events-auto border border-white/10'
-    const bg =
-        toast.type === 'success'
-            ? 'bg-gradient-to-br from-green-500/20 to-emerald-600/30 shadow-lg shadow-green-500/25'
-            : toast.type === 'error'
-                ? 'bg-gradient-to-br from-red-500/20 to-rose-600/30 shadow-lg shadow-red-500/25'
-                : 'bg-gradient-to-br from-slate-500/20 to-slate-600/30 shadow-lg shadow-slate-500/25'
+    const typeConfig = {
+        success: {
+            icon: FaCheck,
+            iconClass: 'text-green-400',
+            bgClass: 'bg-green-500/10 border-green-500/20',
+            glowClass: 'shadow-lg shadow-green-500/20',
+            title: 'Успех',
+        },
+        error: {
+            icon: FaExclamationTriangle,
+            iconClass: 'text-red-400',
+            bgClass: 'bg-red-500/10 border-red-500/20',
+            glowClass: 'shadow-lg shadow-red-500/20',
+            title: 'Ошибка',
+        },
+        info: {
+            icon: FaInfo,
+            iconClass: 'text-cyan-400',
+            bgClass: 'bg-cyan-500/10 border-cyan-500/20',
+            glowClass: 'shadow-lg shadow-cyan-500/20',
+            title: 'Инфо',
+        },
+    }
 
-    const icon =
-        toast.type === 'success'
-            ? '✓'
-            : toast.type === 'error'
-                ? '⚠'
-                : '•'
+    const config = typeConfig[toast.type] || typeConfig.info
+    const IconComponent = config.icon
 
     return (
         <div
-            className={`${base} ${bg} ${visible ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-2 scale-95 pointer-events-none'}`}
+            className={`
+                fixed bottom-6 right-6 z-50 max-w-sm w-full
+                px-5 py-4 rounded-2xl
+                backdrop-blur-xl
+                border ${config.bgClass} ${config.glowClass}
+                text-[var(--text-main)]
+                transition-all duration-300 ease-out
+                pointer-events-auto
+                ${visible && !leave 
+                    ? 'opacity-100 translate-y-0 scale-100' 
+                    : 'opacity-0 translate-y-2 scale-95 pointer-events-none'
+                }
+            `}
             role="status"
             aria-live="polite"
         >
-            <div className="flex items-center gap-3">
-                <span className="text-lg drop-shadow-sm">{icon}</span>
-                <span className="flex-1 leading-snug break-words drop-shadow-sm">{toast.text}</span>
+            <div className="flex items-start gap-3">
+                <div className={`
+                    flex-shrink-0 w-8 h-8 rounded-xl 
+                    flex items-center justify-center
+                    ${config.bgClass}
+                `}>
+                    <IconComponent className={`w-4 h-4 ${config.iconClass}`} />
+                </div>
+                
+                <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium leading-snug break-words">
+                        {toast.text}
+                    </p>
+                </div>
+            </div>
+            
+            <div 
+                className="absolute bottom-0 left-0 right-0 h-1 rounded-b-2xl overflow-hidden"
+            >
+                <div 
+                    className={`
+                        h-full ${config.bgClass}
+                        animate-[shrink_3s_ease-out_forwards]
+                    `}
+                    style={{ 
+                        animation: 'shrink 3s ease-out forwards',
+                    }}
+                />
             </div>
         </div>
     )
