@@ -97,31 +97,74 @@ def parse_ollama_show_output(output: str) -> dict:
     return info
 
 
-download_progress_map = {}  # { "model:variant": {percent, downloaded, total, speed} }
+download_progress_map = {}  # { "model:variant": {percent, downloaded, total, speed, process} }
+active_processes = {}  # { "model:variant": subprocess.Popen }
 
 
 def ollama_pull_with_progress(model_ref):
-    global download_progress_map
+    global download_progress_map, active_processes
     download_progress_map[model_ref] = {"percent": 0, "downloaded": "", "total": "", "speed": ""}
     cmd = [OLLAMA_CMD, "pull", model_ref]
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-    for line in proc.stdout:
-        m = re.search(r'(\d{1,3})%\s+([\d\.]+[KMG]B)/([\d\.]+[KMG]B)\s+([\d\.]+[KMG]B/s)', line)
-        if m:
-            percent = int(m.group(1))
-            downloaded = m.group(2)
-            total = m.group(3)
-            speed = m.group(4)
-            download_progress_map[model_ref] = {
-                "percent": percent,
-                "downloaded": downloaded,
-                "total": total,
-                "speed": speed
-            }
-    proc.wait()
-    download_progress_map[model_ref]["percent"] = 100
-    time.sleep(5)
-    download_progress_map.pop(model_ref, None)
+    active_processes[model_ref] = proc
+    
+    try:
+        for line in proc.stdout:
+            # Фильтруем сообщения 'pulling manifest' чтобы не спамить логи
+            if 'pulling manifest' not in line.lower():
+                logger.debug("Ollama output: %s", line.strip())
+            # Пробуем несколько форматов regex для разных версий Ollama
+            patterns = [
+                r'(\d{1,3})%\s+([\d\.]+[KMG]B)\/([\d\.]+[KMG]B)\s+([\d\.]+[KMG]B\/s)',  # стандартный формат
+                r'(\d{1,3})%\s+([\d\.]+[KMGT]?B)\/([\d\.]+[KMGT]?B)\s+([\d\.]+[KMGT]?B\/s)',  # с опциональными префиксами
+                r'(\d{1,3})%\s+(\S+)\/(\S+)\s+(\S+)',  # общий формат
+            ]
+            
+            matched = False
+            for pattern in patterns:
+                m = re.search(pattern, line)
+                if m:
+                    percent = int(m.group(1))
+                    downloaded = m.group(2)
+                    total = m.group(3)
+                    speed = m.group(4)
+                    download_progress_map[model_ref] = {
+                        "percent": percent,
+                        "downloaded": downloaded,
+                        "total": total,
+                        "speed": speed
+                    }
+                    # Логируем важные события на уровне INFO
+                    if percent % 10 == 0 or percent >= 90:  # Каждые 10% и последние 10%
+                        logger.info("Download progress %s: %d%%", model_ref, percent)
+                    else:
+                        logger.debug("Progress update for %s: %d%%", model_ref, percent)
+                    matched = True
+                    break
+            
+            # Если сложные паттерны не сработали, пробуем простой процент
+            if not matched:
+                simple_percent = re.search(r'(\d{1,3})%', line)
+                if simple_percent:
+                    percent = int(simple_percent.group(1))
+                    current_progress = download_progress_map.get(model_ref, {})
+                    download_progress_map[model_ref] = {
+                        "percent": percent,
+                        "downloaded": current_progress.get("downloaded", ""),
+                        "total": current_progress.get("total", ""),
+                        "speed": current_progress.get("speed", "")
+                    }
+                    # Логируем важные события на уровне INFO
+                    if percent % 10 == 0 or percent >= 90:  # Каждые 10% и последние 10%
+                        logger.info("Download progress %s: %d%%", model_ref, percent)
+                    else:
+                        logger.debug("Simple progress update for %s: %d%%", model_ref, percent)
+        proc.wait()
+        download_progress_map[model_ref]["percent"] = 100
+        time.sleep(5)
+    finally:
+        download_progress_map.pop(model_ref, None)
+        active_processes.pop(model_ref, None)
 
 
 # ========== MODELS endpoints ==========
@@ -241,12 +284,46 @@ def get_model_info(name: str, variant: Optional[str] = Query(None, description="
 def get_download_progress(name: str, variant: str):
     model_ref = f"{name}:{variant}"
     progress = download_progress_map.get(model_ref, {"percent": 0})
+    # Логируем только если есть реальный прогресс
+    if progress.get("percent", 0) > 0:
+        logger.debug("Progress request for %s: %d%%", model_ref, progress.get("percent", 0))
     return progress
 
 
 @app.post("/api/models/cancel")
 def cancel_download(body: dict = Body(...)):
-    return {"status": "cancelled"}
+    name = body.get("name")
+    variant = body.get("variant")
+    
+    if not name or not variant:
+        raise HTTPException(status_code=400, detail="name and variant required")
+    
+    model_ref = f"{name}:{variant}"
+    
+    # Отменяем процесс если он активен
+    if model_ref in active_processes:
+        try:
+            proc = active_processes[model_ref]
+            proc.terminate()  # SIGTERM
+            try:
+                proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                proc.kill()  # SIGKILL если не завершился
+                proc.wait()
+            
+            logger.info("Cancelled model download: %s", model_ref)
+        except Exception as e:
+            logger.error("Error cancelling download %s: %s", model_ref, e)
+            raise HTTPException(status_code=500, detail=f"Failed to cancel download: {e}")
+        finally:
+            # Очищаем прогресс и процесс
+            download_progress_map.pop(model_ref, None)
+            active_processes.pop(model_ref, None)
+    else:
+        # Если процесса нет, но есть в прогрессе - очищаем
+        download_progress_map.pop(model_ref, None)
+    
+    return {"status": "cancelled", "ref": model_ref}
 
 
 # ========== CHATS ==========

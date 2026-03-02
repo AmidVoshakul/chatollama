@@ -179,7 +179,7 @@ export default function ModelManager() {
         setIsCancelling(true)
         try {
             await axios.post('/api/models/cancel', {name, variant})
-            showToast(`Скачивание ${name}:${variant} отменено`, 'info')
+            showToast(`Скачивание ${name}:${variant} отменено`, 'success')
         } catch (err) {
             showToast(`Ошибка отмены: ${err?.response?.data?.detail || err.message}`, 'error')
         } finally {
