@@ -53,35 +53,27 @@ export default function ChatWindow({
         if (
           m.role === 'assistant' &&
           typeof m.content === 'string' &&
-          m.content.includes('<think>')
+          (m.thinking || m.content.includes('<think>'))
         ) {
-          const { contentWithoutThought, thought } =
-            extractThoughtFromContent(m.content)
+          let thought = m.thinking || null
+          let contentWithoutThought = m.content
+          
+          if (!thought && m.content.includes('<think>')) {
+            const { contentWithoutThought: extracted, thought: extractedThought } =
+              extractThoughtFromContent(m.content)
+            contentWithoutThought = extracted
+            thought = extractedThought
+          }
+          
           if (thought) {
             const thoughtId = `thought-${m.id}`
-            if (shownThoughtIds.includes(thoughtId)) {
-              normalized.push({
-                ...m,
-                id: m.id,
-                content: contentWithoutThought,
-                type: 'text',
-              })
-            } else {
-              addShownThoughtId(thoughtId)
-              normalized.push({
-                id: thoughtId,
-                role: 'assistant',
-                type: 'thought',
-                content: thought,
-                created_at: m.created_at,
-              })
-              normalized.push({
-                ...m,
-                id: m.id,
-                content: contentWithoutThought,
-                type: 'text',
-              })
-            }
+            normalized.push({
+              ...m,
+              id: m.id,
+              content: contentWithoutThought,
+              thinking: thought,
+              type: 'text',
+            })
             continue
           }
         }

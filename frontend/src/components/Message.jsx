@@ -6,10 +6,12 @@ import MessageHeader from './MessageHeader'
 import UserMessage from './UserMessage'
 import MessageEditor from './MessageEditor'
 import AssistantMessageContent from './AssistantMessageContent'
+import ThoughtBubble from './ThoughtBubble'
 
 export default function Message({
     role,
     content,
+    thinking,
     model,
     timestamp,
     onDelete,
@@ -258,15 +260,23 @@ export default function Message({
                                 textareaRef={textareaRef}
                             />
                         ) : (
-                            <AssistantMessageContent
-                                content={content}
-                                isEditing={isEditing}
-                                isStreaming={isStreaming}
-                                streamingThought={streamingThought}
-                                thoughtsEnded={thoughtsEnded}
-                                isSidebarOpen={isSidebarOpen}
-                                flattenChildrenToString={flattenChildrenToString}
-                            />
+                            <>
+                                {thinking && (
+                                    <ThoughtBubble
+                                        content={thinking}
+                                        isGenerating={false}
+                                    />
+                                )}
+                                <AssistantMessageContent
+                                    content={content}
+                                    isEditing={isEditing}
+                                    isStreaming={isStreaming}
+                                    streamingThought={streamingThought}
+                                    thoughtsEnded={thoughtsEnded}
+                                    isSidebarOpen={isSidebarOpen}
+                                    flattenChildrenToString={flattenChildrenToString}
+                                />
+                            </>
                         )}
                     </>
                 )}

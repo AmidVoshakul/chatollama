@@ -19,6 +19,7 @@ class Message(SQLModel, table=True):
     chat_id: int = Field(foreign_key="chat.id")
     role: str
     content: str
+    thinking: Optional[str] = None
     model: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
 

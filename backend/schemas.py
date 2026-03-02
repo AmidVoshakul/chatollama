@@ -9,6 +9,7 @@ DEFAULT_MODEL = os.getenv("DEFAULT_MODEL", "qwen2.5-coder:0.5b")
 class MessageCreate(BaseModel):
     role: str
     content: str
+    thinking: Optional[str] = None
     model: str = Field(default=DEFAULT_MODEL)
 
 
@@ -26,5 +27,6 @@ class MessageRead(BaseModel):
     id: int
     role: str
     content: str
+    thinking: Optional[str]
     model: Optional[str]
     created_at: datetime

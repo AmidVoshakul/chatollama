@@ -4,6 +4,7 @@ import Message from './Message'
 
 export default function AssistantMessage({
   content,
+  thinking,
   model,
   timestamp,
   isTemp,
@@ -25,6 +26,7 @@ export default function AssistantMessage({
       <Message
         role="assistant"
         content={content}
+        thinking={thinking}
         model={model}
         timestamp={timestamp}
         isTemp={isTemp}

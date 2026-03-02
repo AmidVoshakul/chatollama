@@ -501,7 +501,7 @@ def send_message_stream(chat_id: int, msg: MessageCreate):
             return
 
         with Session(engine) as session:
-            bot_msg = Message(chat_id=chat_id, role="assistant", content=full_response, model=msg.model)
+            bot_msg = Message(chat_id=chat_id, role="assistant", content=full_response, thinking=full_thinking if full_thinking else None, model=msg.model)
             session.add(bot_msg)
             session.commit()
             session.refresh(bot_msg)

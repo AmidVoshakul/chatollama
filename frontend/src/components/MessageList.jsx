@@ -2,7 +2,6 @@
 import React, { useRef, useEffect, useMemo } from 'react'
 import Message from './Message'
 import AssistantMessage from './AssistantMessage'
-import ThoughtBubble from './ThoughtBubble'
 
 export default function MessageList({
   messages,
@@ -59,13 +58,7 @@ export default function MessageList({
         }
 
         if (msg.type === 'thought') {
-          return (
-            <ThoughtBubble
-              key={msg.id}
-              content={msg.content}
-              isGenerating={false}
-            />
-          )
+          return null
         }
 
         if (msg.role === 'assistant' && isLatestAssistant) {
@@ -73,6 +66,7 @@ export default function MessageList({
             <AssistantMessage
               key={msg.id}
               content={msg.content}
+              thinking={msg.thinking}
               model={msg.model}
               timestamp={msg.created_at}
               isTemp={msg._isTemp}
@@ -97,6 +91,7 @@ export default function MessageList({
             key={msg.id}
             role={msg.role}
             content={msg.content}
+            thinking={msg.thinking}
             model={msg.model}
             timestamp={msg.created_at}
             isTemp={msg._isTemp}
