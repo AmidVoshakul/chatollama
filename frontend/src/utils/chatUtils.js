@@ -8,7 +8,7 @@ export function extractThoughtFromContent(text) {
     if (typeof text !== 'string') {
         return {contentWithoutThought: text, thought: null}
     }
-    const regex = /<think>([\s\S]*?)<\/think>/i
+    const regex = /<think>([\s\S]*?)(?:<\/think>|</think>)/gi
     const match = text.match(regex)
     if (!match) {
         return {contentWithoutThought: text, thought: null}
