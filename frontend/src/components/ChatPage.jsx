@@ -54,11 +54,11 @@ export default function ChatPage({openSettingsModal, theme, transparentMode}) {
                     initialChatCreatedRef.current = true
                     const {data: created} = await axios.post('/api/chats', {title: 'Новый чат'})
                     const {data: updatedChats} = await axios.get('/api/chats')
-                    const normalized = Array.isArray(updatedChats) ? updatedChats : (created ? [created] : [])
+                    const normalized = Array.isArray(updatedChats) ? updatedChats.slice().reverse() : (created ? [created] : [])
                     setChats(normalized)
                     setActiveChat(created || normalized[0] || null)
                 } else {
-                    setChats(cs)
+                    setChats(cs.slice().reverse())
                     setActiveChat(cs[0])
                 }
             } catch (e) {
@@ -96,7 +96,7 @@ export default function ChatPage({openSettingsModal, theme, transparentMode}) {
         try {
             const {data: created} = await axios.post('/api/chats', {title: title.trim()})
             const {data: updatedChats} = await axios.get('/api/chats')
-            const normalized = Array.isArray(updatedChats) ? updatedChats : (created ? [created] : [])
+            const normalized = Array.isArray(updatedChats) ? updatedChats.slice().reverse() : (created ? [created] : [])
             setChats(normalized)
             const newActive = created || normalized[0] || null
             setActiveChat(newActive)
@@ -134,7 +134,7 @@ export default function ChatPage({openSettingsModal, theme, transparentMode}) {
         try {
             await axios.delete(`/api/chats/${id}`)
             const {data: cs} = await axios.get('/api/chats')
-            const normalized = Array.isArray(cs) ? cs : []
+            const normalized = Array.isArray(cs) ? cs.slice().reverse() : []
             setChats(normalized)
             if (activeChat?.id === id) setActiveChat(normalized[0] || null)
         } catch (e) {
