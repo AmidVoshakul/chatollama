@@ -52,7 +52,7 @@ export default function ModelManager() {
     const [hoveredVariant, setHoveredVariant] = useState(null)
     const [diskInfo, setDiskInfo] = useState(null)
     const [toast, setToast] = useState(null)
-    const [downloadProgress, setDownloadProgress] = useState(0)
+    const [downloadProgress, setDownloadProgress] = useState(null) // {percent, downloaded, total, speed}
 
     // debug render log
     // console.log('ModelManager render:', { selectedModel })
@@ -121,16 +121,26 @@ export default function ModelManager() {
         const variants = installedMap[selectedModel.name]
         if (!variants || variants.length === 0) return
         const variant = variants[0]
-        axios.get(`/api/models/info/${encodeURIComponent(selectedModel.name)}?variant=${encodeURIComponent(variant)}`)
-            .then(res => {
-                if (!mounted) return;
-                setModelInfo(res.data || null)
-            })
-            .catch(err => {
-                console.error('Ошибка получения информации о модели:', err);
-                if (!mounted) return;
-                setModelInfo(null)
-            })
+
+        const fetchModelInfo = (attempt = 0) => {
+            axios.get(`/api/models/info/${encodeURIComponent(selectedModel.name)}?variant=${encodeURIComponent(variant)}`)
+                .then(res => {
+                    if (!mounted) return;
+                    setModelInfo(res.data || null)
+                })
+                .catch(err => {
+                    if (!mounted) return;
+                    // Retry up to 3 times with delay if model not found (may still be registering)
+                    if (attempt < 3 && err.response?.status === 502 && err.response?.data?.detail?.includes('not found')) {
+                        setTimeout(() => fetchModelInfo(attempt + 1), 1500)
+                    } else {
+                        console.error('Ошибка получения информации о модели:', err);
+                        setModelInfo(null)
+                    }
+                })
+        }
+
+        fetchModelInfo()
         return () => {
             mounted = false
         }
@@ -144,7 +154,7 @@ export default function ModelManager() {
     const handleDownload = useCallback(async (name, variant) => {
         if (downloadingModel && downloadingModel.name === name && downloadingModel.variant === variant) return
         setDownloadingModel({name, variant})
-        setDownloadProgress(0)
+        setDownloadProgress({percent: 0, downloaded: '', total: '', speed: ''})
         setIsCancelling(false)
         try {
             await axios.post('/api/models/download', {name, variant})
@@ -153,7 +163,12 @@ export default function ModelManager() {
                 await new Promise(res => setTimeout(res, 800))
                 const {data} = await axios.get(`/api/models/progress?name=${encodeURIComponent(name)}&variant=${encodeURIComponent(variant)}&t=${Date.now()}`)
                 const percent = typeof data?.percent === 'number' ? data.percent : (typeof data?.progress === 'number' ? data.progress : 0)
-                setDownloadProgress(Math.max(0, Math.min(100, Number(percent || 0))))
+                setDownloadProgress({
+                    percent: Math.max(0, Math.min(100, Number(percent || 0))),
+                    downloaded: data?.downloaded || '',
+                    total: data?.total || '',
+                    speed: data?.speed || ''
+                })
                 if ((percent || 0) >= 100) finished = true
             }
             if (!isCancelling) {
@@ -162,14 +177,14 @@ export default function ModelManager() {
             }
             setTimeout(() => {
                 setDownloadingModel(null);
-                setDownloadProgress(0);
+                setDownloadProgress(null);
                 setIsCancelling(false)
             }, 1200)
         } catch (err) {
             showToast(`Ошибка скачивания: ${err?.response?.data?.detail || err.message}`, 'error')
             setTimeout(() => {
                 setDownloadingModel(null);
-                setDownloadProgress(0);
+                setDownloadProgress(null);
                 setIsCancelling(false)
             }, 800)
         }
@@ -184,7 +199,7 @@ export default function ModelManager() {
             showToast(`Ошибка отмены: ${err?.response?.data?.detail || err.message}`, 'error')
         } finally {
             setDownloadingModel(null)
-            setDownloadProgress(0)
+            setDownloadProgress(null)
             setIsCancelling(false)
         }
     }, [])
@@ -594,7 +609,13 @@ export default function ModelManager() {
                                                             <div className="flex items-center gap-3">
                                                                 <div className="flex flex-col">
                                                                     <span className="text-[var(--text-main)] font-medium text-sm">{variant}</span>
-                                                                    {size && <span className={`text-xs mt-0.5 ${insufficientSpace ? 'text-red-400' : 'text-[var(--text-muted)]'}`}>{size}</span>}
+                                                                    {isDownloadingVariant && downloadProgress ? (
+                                                                        <span className="text-xs mt-0.5 text-[var(--text-muted)]">
+                                                                            {downloadProgress.downloaded || '0 MB'}/{downloadProgress.total || size || '?'} | {downloadProgress.percent || 0}%{downloadProgress.speed ? `   ${downloadProgress.speed}` : ''}
+                                                                        </span>
+                                                                    ) : size && (
+                                                                        <span className={`text-xs mt-0.5 ${insufficientSpace ? 'text-red-400' : 'text-[var(--text-muted)]'}`}>{size}</span>
+                                                                    )}
                                                                 </div>
                                                             </div>
 
@@ -614,7 +635,7 @@ export default function ModelManager() {
                                                                         </span>
                                                                     )
                                                                     ) : isDownloadingVariant ? (
-                                                                        downloadProgress >= 100 ? (
+                                                                        downloadProgress && downloadProgress.percent >= 100 ? (
                                                                             <span className="flex items-center gap-1.5 text-green-400 text-xs px-2 py-1 bg-green-500/10 rounded-lg">
                                                                                 <FaCheck className="w-3 h-3"/> Готово
                                                                             </span>
@@ -654,11 +675,11 @@ export default function ModelManager() {
                                                             </div>
                                                         </div>
 
-                                                        {isDownloadingVariant && downloadProgress < 100 && (
+                                                        {isDownloadingVariant && downloadProgress && downloadProgress.percent < 100 && (
                                                             <div className="mt-2 h-1.5 bg-[var(--bg-surface)] rounded-full overflow-hidden">
                                                                 <div
                                                                     className="h-full bg-gradient-to-r from-cyan-500 to-violet-500 transition-all duration-500 ease-out rounded-full"
-                                                                    style={{width: `${downloadProgress}%`}}
+                                                                    style={{width: `${downloadProgress.percent}%`}}
                                                                 />
                                                             </div>
                                                         )}

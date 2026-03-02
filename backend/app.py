@@ -108,41 +108,37 @@ def ollama_pull_with_progress(model_ref):
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     active_processes[model_ref] = proc
     
+    last_logged_percent = -1
+    patterns = [
+        r'(\d{1,3})%\s+.*?\s+([\d\.]+\s*[KMGT]?B)\s*/\s*([\d\.]+\s*[KMGT]?B)\s+([\d\.]+\s*[KMGT]?B/s)',
+        r'(\d{1,3})%\s+([\d\.]+\s*[KMGT]?B)\s*/\s*([\d\.]+\s*[KMGT]?B)\s+([\d\.]+\s*[KMGT]?B/s)',
+        r'(\d{1,3})%\s+(\S+)\s*/\s*(\S+)\s+(\S+)',
+    ]
+    
     try:
         for line in proc.stdout:
-            # Фильтруем сообщения 'pulling manifest' чтобы не спамить логи
-            if 'pulling manifest' not in line.lower():
-                logger.debug("Ollama output: %s", line.strip())
-            # Пробуем несколько форматов regex для разных версий Ollama
-            patterns = [
-                r'(\d{1,3})%\s+([\d\.]+[KMG]B)\/([\d\.]+[KMG]B)\s+([\d\.]+[KMG]B\/s)',  # стандартный формат
-                r'(\d{1,3})%\s+([\d\.]+[KMGT]?B)\/([\d\.]+[KMGT]?B)\s+([\d\.]+[KMGT]?B\/s)',  # с опциональными префиксами
-                r'(\d{1,3})%\s+(\S+)\/(\S+)\s+(\S+)',  # общий формат
-            ]
-            
+            if line.lstrip().startswith('pulling manifest'):
+                continue
             matched = False
             for pattern in patterns:
                 m = re.search(pattern, line)
                 if m:
                     percent = int(m.group(1))
-                    downloaded = m.group(2)
-                    total = m.group(3)
-                    speed = m.group(4)
+                    downloaded = m.group(2).strip()
+                    total = m.group(3).strip()
+                    speed = m.group(4).strip()
                     download_progress_map[model_ref] = {
                         "percent": percent,
                         "downloaded": downloaded,
                         "total": total,
                         "speed": speed
                     }
-                    # Логируем важные события на уровне INFO
-                    if percent % 10 == 0 or percent >= 90:  # Каждые 10% и последние 10%
-                        logger.info("Download progress %s: %d%%", model_ref, percent)
-                    else:
-                        logger.debug("Progress update for %s: %d%%", model_ref, percent)
+                    if percent != last_logged_percent and (percent % 10 == 0 or percent >= 90):
+                        logger.info("Download progress %s: %d%% (%s/%s %s)", model_ref, percent, downloaded, total, speed)
+                        last_logged_percent = percent
                     matched = True
                     break
             
-            # Если сложные паттерны не сработали, пробуем простой процент
             if not matched:
                 simple_percent = re.search(r'(\d{1,3})%', line)
                 if simple_percent:
@@ -154,13 +150,17 @@ def ollama_pull_with_progress(model_ref):
                         "total": current_progress.get("total", ""),
                         "speed": current_progress.get("speed", "")
                     }
-                    # Логируем важные события на уровне INFO
-                    if percent % 10 == 0 or percent >= 90:  # Каждые 10% и последние 10%
+                    if percent != last_logged_percent and (percent % 10 == 0 or percent >= 90):
                         logger.info("Download progress %s: %d%%", model_ref, percent)
-                    else:
-                        logger.debug("Simple progress update for %s: %d%%", model_ref, percent)
+                        last_logged_percent = percent
+        
         proc.wait()
-        download_progress_map[model_ref]["percent"] = 100
+        download_progress_map[model_ref] = {
+            "percent": 100,
+            "downloaded": download_progress_map.get(model_ref, {}).get("total", ""),
+            "total": download_progress_map.get(model_ref, {}).get("total", ""),
+            "speed": ""
+        }
         time.sleep(5)
     finally:
         download_progress_map.pop(model_ref, None)
@@ -168,6 +168,11 @@ def ollama_pull_with_progress(model_ref):
 
 
 # ========== MODELS endpoints ==========
+
+@app.get("/")
+def root():
+    return {"status": "ok", "message": "ChatoLlama API is running"}
+
 
 @app.get("/api/models", response_model=List[str])
 def list_installed_models():
@@ -220,6 +225,7 @@ def download_model(body: dict = Body(...)):
         raise HTTPException(status_code=400, detail="name and variant required (or ref)")
 
     model_ref = f"{name}:{variant}"
+    download_progress_map[model_ref] = {"percent": 0, "downloaded": "0MB", "total": "", "speed": ""}
     threading.Thread(target=ollama_pull_with_progress, args=(model_ref,), daemon=True).start()
     logger.info("Started background model download: %s", model_ref)
     return {"status": "started", "ref": model_ref}
@@ -284,9 +290,6 @@ def get_model_info(name: str, variant: Optional[str] = Query(None, description="
 def get_download_progress(name: str, variant: str):
     model_ref = f"{name}:{variant}"
     progress = download_progress_map.get(model_ref, {"percent": 0})
-    # Логируем только если есть реальный прогресс
-    if progress.get("percent", 0) > 0:
-        logger.debug("Progress request for %s: %d%%", model_ref, progress.get("percent", 0))
     return progress
 
 
