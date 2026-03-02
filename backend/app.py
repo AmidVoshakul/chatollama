@@ -99,6 +99,13 @@ def parse_ollama_show_output(output: str) -> dict:
 
 download_progress_map = {}  # { "model:variant": {percent, downloaded, total, speed, process} }
 active_processes = {}  # { "model:variant": subprocess.Popen }
+active_streams = {}  # { chat_id: {"event": asyncio.Event(), "cancelled": bool} }
+
+
+def cancel_stream(chat_id: int):
+    if chat_id in active_streams:
+        active_streams[chat_id]["cancelled"] = True
+        active_streams[chat_id]["event"].set()
 
 
 def ollama_pull_with_progress(model_ref):
@@ -444,7 +451,14 @@ def send_message_stream(chat_id: int, msg: MessageCreate):
     """
     Streaming endpoint - sends user message, then streams assistant response via SSE.
     """
+    import asyncio
+    
+    stream_state = {"cancelled": False}
+    active_streams[chat_id] = stream_state
+    
     async def event_generator():
+        nonlocal full_response, full_thinking, assistant_id
+        
         with Session(engine) as session:
             if not session.get(Chat, chat_id):
                 yield "data: error:Chat not found\n\n"
@@ -479,6 +493,9 @@ def send_message_stream(chat_id: int, msg: MessageCreate):
                     return
 
                 for line in response.iter_lines():
+                    if stream_state.get("cancelled"):
+                        logger.info("Stream cancelled for chat %s", chat_id)
+                        break
                     if not line:
                         continue
                     try:
@@ -499,6 +516,11 @@ def send_message_stream(chat_id: int, msg: MessageCreate):
             logger.exception("Streaming error")
             yield f"data: error:{str(e)}\n\n"
             return
+        finally:
+            active_streams.pop(chat_id, None)
+
+        if stream_state.get("cancelled") and not full_response:
+            return
 
         with Session(engine) as session:
             bot_msg = Message(chat_id=chat_id, role="assistant", content=full_response, thinking=full_thinking if full_thinking else None, model=msg.model)
@@ -515,8 +537,11 @@ def send_message_stream(chat_id: int, msg: MessageCreate):
 
 @app.post("/api/chats/{chat_id}/stop", status_code=200)
 def stop_generation(chat_id: int):
-    # Not implemented: proper stop/cancel of in-flight model calls
-    return {"status": "not implemented in this server endpoint"}
+    if chat_id in active_streams:
+        active_streams[chat_id]["cancelled"] = True
+        logger.info("Stopping generation for chat %s", chat_id)
+        return {"status": "stopped", "chat_id": chat_id}
+    return {"status": "no active stream", "chat_id": chat_id}
 
 
 @app.delete("/api/messages/{message_id}", status_code=204)

@@ -201,6 +201,14 @@ export default function ChatWindow({
         (thought) => {
           setThoughtsEnded(false)
           setStreamingThought(prev => prev + thought)
+        },
+        () => {
+          setMessages(prev =>
+            prev.map(m =>
+              m.id === streamId ? { ...m, _isStreaming: false } : m
+            )
+          )
+          setIsGenerating(false)
         }
       )
     } catch {

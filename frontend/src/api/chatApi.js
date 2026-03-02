@@ -18,63 +18,90 @@ export async function sendUserMessage(chatId, text, model) {
 }
 
 // Streaming отправка сообщения - использует fetch с ReadableStream
-export async function sendUserMessageStream(chatId, text, model, onChunk, onDone, onError, onThought) {
-    const response = await fetch(`/api/chats/${chatId}/messages/stream`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            chat_id: chatId,
-            role: 'user',
-            content: text,
-            model,
-        }),
-    })
+let currentAbortController = null
 
-    if (!response.ok) {
-        const errorText = await response.text()
-        onError?.(errorText)
-        return
+export async function sendUserMessageStream(chatId, text, model, onChunk, onDone, onError, onThought, onAbort) {
+    if (currentAbortController) {
+        currentAbortController.abort()
     }
+    currentAbortController = new AbortController()
+    
+    try {
+        const response = await fetch(`/api/chats/${chatId}/messages/stream`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                chat_id: chatId,
+                role: 'user',
+                content: text,
+                model,
+            }),
+            signal: currentAbortController.signal,
+        })
 
-    const reader = response.body.getReader()
-    const decoder = new TextDecoder()
+        if (!response.ok) {
+            const errorText = await response.text()
+            if (response.status === 0 || response.type === 'error') {
+                return
+            }
+            onError?.(errorText)
+            currentAbortController = null
+            return
+        }
 
-    while (true) {
-        const {done, value} = await reader.read()
-        if (done) break
+        const reader = response.body.getReader()
+        const decoder = new TextDecoder()
 
-        const text = decoder.decode(value, {stream: true})
-        const lines = text.split('\n')
+        while (true) {
+            const {done, value} = await reader.read()
+            if (done) break
 
-        for (const line of lines) {
-            if (line.startsWith('data:')) {
-                const data = line.slice(5).trim()
-                if (data.startsWith('error:')) {
-                    onError?.(data.slice(6))
-                    return
-                }
-                if (data.startsWith('thought:')) {
-                    onThought?.(data.slice(8))
-                    continue
-                }
-                if (data.startsWith('chunk:')) {
-                    onChunk?.(data.slice(6))
-                    continue
-                }
-                if (data.startsWith('done:')) {
-                    const messageId = parseInt(data.slice(5), 10)
-                    onDone?.(messageId)
-                    return
+            const text = decoder.decode(value, {stream: true})
+            const lines = text.split('\n')
+
+            for (const line of lines) {
+                if (line.startsWith('data:')) {
+                    const data = line.slice(5).trim()
+                    if (data.startsWith('error:')) {
+                        onError?.(data.slice(6))
+                        return
+                    }
+                    if (data.startsWith('thought:')) {
+                        onThought?.(data.slice(8))
+                        continue
+                    }
+                    if (data.startsWith('chunk:')) {
+                        onChunk?.(data.slice(6))
+                        continue
+                    }
+                    if (data.startsWith('done:')) {
+                        const messageId = parseInt(data.slice(5), 10)
+                        onDone?.(messageId)
+                        currentAbortController = null
+                        return
+                    }
                 }
             }
         }
+    } catch (e) {
+        if (e.name === 'AbortError' || e.type === 'abort') {
+            onAbort?.()
+            return
+        }
+        console.error('Stream error:', e)
+    } finally {
+        currentAbortController = null
     }
 }
 
 // Остановка генерации
 export async function stopGeneration(chatId) {
+    if (currentAbortController) {
+        currentAbortController.abort()
+        currentAbortController = null
+    }
     await axios.post(`/api/chats/${chatId}/stop`)
 }
 
