@@ -1,17 +1,11 @@
 // src/components/Message.jsx
 import React, { useEffect, useState, useRef, useCallback } from 'react'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
 import 'highlight.js/styles/github-dark.css'
 import './animations/Animations.css'
-import CodeBlock from './CodeBlock'
-import AnimatedMessage from './AnimatedMessage'
-import ThoughtBubble from './ThoughtBubble'
-import LoadingDots from './LoadingDots'
-import MessageActions from './MessageActions'
-import MessageMenuButton from './MessageMenuButton'
-import { UserIcon, CpuIcon, XIcon, SaveIcon, SendIcon } from './icons/MessageIcons'
-
+import MessageHeader from './MessageHeader'
+import UserMessage from './UserMessage'
+import MessageEditor from './MessageEditor'
+import AssistantMessageContent from './AssistantMessageContent'
 
 export default function Message({
     role,
@@ -37,12 +31,10 @@ export default function Message({
     const textareaRef = useRef(null)
     const hoverTimeoutRef = useRef(null)
 
-    // sync editText ← content
     useEffect(() => {
         setEditText(content)
     }, [content])
 
-    // Очистка таймаута при размонтировании
     useEffect(() => {
         return () => {
             if (hoverTimeoutRef.current) {
@@ -51,17 +43,15 @@ export default function Message({
         }
     }, [])
 
-    // Функция для безопасного закрытия с задержкой
     const closeWithDelay = useCallback(() => {
         if (hoverTimeoutRef.current) {
             clearTimeout(hoverTimeoutRef.current)
         }
         hoverTimeoutRef.current = setTimeout(() => {
             setShowActions(false)
-        }, 300) // 300ms задержка
+        }, 300)
     }, [])
 
-    // Функция для немедленного открытия (отмена закрытия)
     const cancelCloseDelay = useCallback(() => {
         if (hoverTimeoutRef.current) {
             clearTimeout(hoverTimeoutRef.current)
@@ -69,26 +59,20 @@ export default function Message({
         }
     }, [])
 
-    // close dropdown on outside click - теперь обрабатывается в MessageActions
-
-    // auto-resize edit textarea
-    useEffect(() => {
-        if (isEditing && textareaRef.current) {
-            textareaRef.current.style.height = 'auto'
-            textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`
-        }
-    }, [editText, isEditing])
-
-    // copy handler
     const handleCopy = useCallback(text => {
         if (!navigator.clipboard) return
+        
+        let timeoutId
         navigator.clipboard.writeText(text).then(() => {
             setCopied(true)
-            setTimeout(() => setCopied(false), 1500)
+            timeoutId = setTimeout(() => setCopied(false), 1500)
         })
+        
+        return () => {
+            if (timeoutId) clearTimeout(timeoutId)
+        }
     }, [])
 
-    // regenerate assistant answer
     const handleRegenerate = useCallback(async () => {
         if (isGenerating) return
         setIsGenerating(true)
@@ -99,7 +83,6 @@ export default function Message({
         }
     }, [isGenerating, onRegenerate])
 
-    // timestamp formatting
     const formattedDate = timestamp
         ? new Date(timestamp).toLocaleString('ru-RU', {
               day: '2-digit',
@@ -110,7 +93,6 @@ export default function Message({
           })
         : ''
 
-    // flatten JSX→string for CodeBlock copy
     const flattenChildrenToString = useCallback(function flatten(node) {
         if (node == null) return ''
         if (typeof node === 'string') return node
@@ -119,7 +101,6 @@ export default function Message({
         return ''
     }, [])
 
-    // submit edit — close editor immediately after onEdit
     const submitEdit = useCallback(async () => {
         if (editText.trim() && editText !== content) {
             try {
@@ -133,19 +114,23 @@ export default function Message({
         }
     }, [editText, content, onEdit, onRegenerate, role])
 
-    // Escape → close dropdown/edit
     useEffect(() => {
+        let isCancelled = false
+        
         function onKey(e) {
-            if (e.key === 'Escape') {
+            if (e.key === 'Escape' && !isCancelled) {
                 setShowActions(false)
                 setIsEditing(false)
             }
         }
+        
         document.addEventListener('keydown', onKey)
-        return () => document.removeEventListener('keydown', onKey)
+        return () => {
+            isCancelled = true
+            document.removeEventListener('keydown', onKey)
+        }
     }, [])
 
-    // alignment classes
     const containerAlignment = isEditing
         ? 'text-left px-0'
         : role === 'user'
@@ -164,7 +149,6 @@ export default function Message({
 
     const isUser = role === 'user'
 
-    // show error state
     if (hasError) {
         return (
             <div className={`my-4 ${containerAlignment}`}>
@@ -177,290 +161,114 @@ export default function Message({
         )
     }
 
-    // compute code max width
-    const codeMaxWidth = isSidebarOpen
-        ? 'calc(100vw - 23rem)'
-        : 'calc(100vw - 12rem)'
+    const handleEditStart = () => {
+        setEditText(content)
+        setIsEditing(true)
+        setShowActions(false)
+        setTimeout(() => textareaRef.current?.focus(), 50)
+    }
+
+    const handleCancelEdit = () => {
+        setIsEditing(false)
+        setEditText(content)
+    }
 
     return (
         <div className={`my-4 ${containerAlignment}`}>
             {isUser && (
                 <div className="flex flex-col items-end mb-1">
                     <div className="flex items-center px-2 py-1.5 text-xs text-[var(--text-muted)] relative">
-                        <div 
-                            className="relative"
-                            onMouseEnter={() => {
-                                cancelCloseDelay()
-                                setShowActions(true)
-                            }}
-                            onMouseLeave={() => closeWithDelay()}
-                        >
-                            <MessageMenuButton 
-                                showActions={showActions}
-                                onClick={() => setShowActions(v => !v)}
-                            />
-                            <MessageActions
-                                show={showActions}
-                                onClose={() => setShowActions(false)}
-                                position="right"
-                                copied={copied}
-                                role="user"
-                                triggerHover={true}
-                                onMouseEnter={cancelCloseDelay}
-                                onMouseLeave={closeWithDelay}
-                                onCopy={() => handleCopy(content)}
-                                onEdit={() => {
-                                    setEditText(content)
-                                    setIsEditing(true)
-                                    setShowActions(false)
-                                    setTimeout(() => textareaRef.current?.focus(), 50)
-                                }}
-                                onDelete={onDelete}
-                            />
-                        </div>
-                        {formattedDate && <span className="ml-3 text-[var(--text-muted)]/70 font-medium">{formattedDate}</span>}
+                        <MessageHeader
+                            role="user"
+                            formattedDate={formattedDate}
+                            showActions={showActions}
+                            setShowActions={setShowActions}
+                            copied={copied}
+                            onCopy={() => handleCopy(content)}
+                            onEdit={handleEditStart}
+                            onDelete={onDelete}
+                            cancelCloseDelay={cancelCloseDelay}
+                            closeWithDelay={closeWithDelay}
+                            position="right"
+                        />
                     </div>
                 </div>
             )}
             <div className={bubbleClasses}>
                 {role === 'user' ? (
                     isEditing ? (
-                        <div className="p-3">
-                            <textarea
-                                ref={textareaRef}
-                                value={editText}
-                                onChange={e => setEditText(e.target.value)}
-                                onKeyDown={e => {
-                                    if (e.key === 'Enter' && !e.shiftKey) {
-                                        e.preventDefault()
-                                        submitEdit()
+                        <MessageEditor
+                            editText={editText}
+                            setEditText={setEditText}
+                            onSubmit={async () => {
+                                if (editText.trim()) {
+                                    setIsEditing(false)
+                                    if (onEdit) {
+                                        await onEdit(editText)
                                     }
-                                }}
-                                className="w-full bg-[var(--bg-main)] text-[var(--text-main)] p-3 rounded-lg border border-theme focus:outline-none resize-none overflow-hidden text-sm"
-                                style={{ minHeight: '2.5rem' }}
-                                aria-label="Редактирование"
-                            />
-                            <div className="flex justify-between items-center mt-2">
-                                <button
-                                    onClick={() => {
-                                        setIsEditing(false)
-                                        setEditText(content)
-                                    }}
-                                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm text-[var(--text-muted)] hover:text-red-400 hover:bg-red-500/10 transition-all duration-200"
-                                >
-                                    <XIcon className="w-4 h-4" />
-                                    Отмена
-                                </button>
-                                <div className="flex items-center gap-2">
-                                    <button
-                                        onClick={async () => {
-                                            if (editText.trim()) {
-                                                setIsEditing(false)
-                                                if (onEdit) {
-                                                    await onEdit(editText)
-                                                }
-                                            } else {
-                                                setIsEditing(false)
-                                            }
-                                        }}
-                                        className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm text-[var(--text-muted)] hover:text-blue-400 hover:bg-blue-500/10 transition-all duration-200"
-                                    >
-                                        <SaveIcon className="w-4 h-4" />
-                                        Сохранить
-                                    </button>
-                                    <button
-                                        onClick={async () => {
-                                            if (editText.trim()) {
-                                                setIsEditing(false)
-                                                if (onEditAndRegenerate) {
-                                                    await onEditAndRegenerate(editText)
-                                                }
-                                            } else {
-                                                setIsEditing(false)
-                                            }
-                                        }}
-                                        className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm bg-gradient-to-r from-purple-500 to-indigo-500 text-white hover:opacity-90 transition-all duration-200"
-                                    >
-                                        <SendIcon className="w-4 h-4" />
-                                        Сохранить и отправить
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
+                                } else {
+                                    setIsEditing(false)
+                                }
+                            }}
+                            onCancel={handleCancelEdit}
+                            onSubmitAndRegenerate={async () => {
+                                if (editText.trim()) {
+                                    setIsEditing(false)
+                                    if (onEditAndRegenerate) {
+                                        await onEditAndRegenerate(editText)
+                                    }
+                                } else {
+                                    setIsEditing(false)
+                                }
+                            }}
+                            submitEdit={submitEdit}
+                            textareaRef={textareaRef}
+                        />
                     ) : (
-                        <div className="flex items-start gap-3 p-3 pt-2">
-                            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center shadow-lg">
-                                <UserIcon className="w-4 h-4 text-white" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                                <div className="message-user-content text-[var(--text-main)] text-[15px] leading-relaxed break-words">
-                                    {content}
-                                </div>
-                            </div>
-                        </div>
+                        <UserMessage content={content} isEditing={isEditing} />
                     )
                 ) : (
-                    <React.Fragment>
-                        <div className="flex items-center px-4 py-2.5 text-xs text-[var(--text-muted)] relative">
-                            <div 
-                                className="relative"
-                                onMouseEnter={() => {
-                                    cancelCloseDelay()
-                                    setShowActions(true)
-                                }}
-                                onMouseLeave={() => closeWithDelay()}
-                            >
-                                <MessageMenuButton 
-                                    showActions={showActions}
-                                    onClick={() => setShowActions(v => !v)}
-                                />
-                                <MessageActions
-                                    show={showActions}
-                                    onClose={() => setShowActions(false)}
-                                    position="left"
-                                    copied={copied}
-                                    isGenerating={isGenerating}
-                                    role="assistant"
-                                    triggerHover={true}
-                                    onMouseEnter={cancelCloseDelay}
-                                    onMouseLeave={closeWithDelay}
-                                    onCopy={() => handleCopy(content)}
-                                    onEdit={() => {
-                                        setEditText(content)
-                                        setIsEditing(true)
-                                        setShowActions(false)
-                                        setTimeout(() => textareaRef.current?.focus(), 50)
-                                    }}
-                                    onDelete={onDelete}
-                                    onRegenerate={handleRegenerate}
-                                />
-                            </div>
+                    <>
+                        <MessageHeader
+                            role="assistant"
+                            model={model}
+                            formattedDate={formattedDate}
+                            showActions={showActions}
+                            setShowActions={setShowActions}
+                            copied={copied}
+                            isGenerating={isGenerating}
+                            onCopy={() => handleCopy(content)}
+                            onEdit={handleEditStart}
+                            onDelete={onDelete}
+                            onRegenerate={handleRegenerate}
+                            cancelCloseDelay={cancelCloseDelay}
+                            closeWithDelay={closeWithDelay}
+                            position="left"
+                        />
 
-                            {role === 'assistant' && model && (
-                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r from-violet-500/15 to-indigo-500/15 border border-violet-500/25 text-violet-300 text-[10px] font-semibold mr-3 shadow-sm">
-                                    <CpuIcon className="w-3 h-3" />
-                                    {model}
-                                </span>
-                            )}
-                            {formattedDate && <span className="text-[var(--text-muted)]/70 font-medium">{formattedDate}</span>}
-                        </div>
-
-                        <div className="p-4 pt-3" style={{ '--code-max-width': codeMaxWidth }}>
-                            {isEditing ? (
-                                <textarea
-                                    ref={textareaRef}
-                                    value={editText}
-                                    onChange={e => setEditText(e.target.value)}
-                                    onKeyDown={e => {
-                                        if (e.key === 'Enter' && !e.shiftKey) {
-                                            e.preventDefault()
-                                            submitEdit()
-                                        }
-                                    }}
-                                    onBlur={submitEdit}
-                                    className="w-full bg-[var(--bg-main)] text-[var(--text-main)] p-3 rounded-lg border border-theme focus:outline-none resize-none overflow-hidden text-sm"
-                                    style={{ minHeight: '2.5rem' }}
-                                    aria-label="Редактирование"
-                                />
-                            ) : role === 'assistant' ? (
-                                <>
-                                    {streamingThought && (
-                                        <ThoughtBubble
-                                            content={streamingThought}
-                                            isGenerating={!thoughtsEnded}
-                                        />
-                                    )}
-                                    {!streamingThought && isStreaming && !content && (
-                                        <LoadingDots />
-                                    )}
-                                    <AnimatedMessage
-                                        content={content}
-                                        isSidebarOpen={isSidebarOpen}
-                                        flattenChildrenToString={flattenChildrenToString}
-                                        disableAnimation={isStreaming}
-                                    />
-                                </>
-                            ) : (
-                                <div className="message-markdown" style={{ maxWidth: '100%' }}>
-                                    <ReactMarkdown
-                                        remarkPlugins={[remarkGfm]}
-                                        components={{
-                                            p({children}) {
-                                                const getTextContent = (node) => {
-                                                    if (!node) return '';
-                                                    if (typeof node === 'string') return node;
-                                                    if (typeof node === 'number') return String(node);
-                                                    if (Array.isArray(node)) return node.map(getTextContent).join('');
-                                                    if (node.props?.children) return getTextContent(node.props.children);
-                                                    return '';
-                                                };
-                                                const text = getTextContent(children);
-                                                if (text.includes('🔹') || text.includes('•') || text.includes('▸')) {
-                                                    const items = text.split(/(?:🔹|•|▸)\s*/).filter(Boolean);
-                                                    if (items.length > 1) {
-                                                        return (
-                                                            <ul className="my-2 ml-2">
-                                                                {items.map((item, i) => (
-                                                                    <li key={i} className="my-1">{item.trim()}</li>
-                                                                ))}
-                                                            </ul>
-                                                        );
-                                                    }
-                                                }
-                                                return <p className="my-2">{children}</p>;
-                                            },
-                                            code({ inline, className = '', children, ...props }) {
-                                                const language = className.replace('language-', '')
-                                                const codeText = String(children).replace(/\n$/, '')
-                                                if (inline) {
-                                                    return (
-                                                        <code className={className} {...props}>
-                                                            {children}
-                                                        </code>
-                                                    )
-                                                }
-                                                return (
-                                                    <CodeBlock
-                                                        className={className}
-                                                        language={language}
-                                                        codeText={codeText}
-                                                        isSidebarOpen={isSidebarOpen}
-                                                        flattenChildrenToString={flattenChildrenToString}
-                                                    >
-                                                        {codeText}
-                                                    </CodeBlock>
-                                                )
-                                            },
-                                        }}
-                                    >
-                                        {content}
-                                    </ReactMarkdown>
-                                </div>
-                            )}
-                        </div>
-
-                        {isEditing && (
-                            <div className="flex w-full items-center gap-3 px-3 py-2 border-t border-theme bg-[var(--bg-surface)] sticky bottom-0 z-10 animate-fade-in">
-                                <button
-                                    onClick={() => {
-                                        setIsEditing(false)
-                                        setEditText(content)
-                                    }}
-                                    title="Отменить"
-                                    className="hover:text-red-400 text-[var(--text-muted)] transition-transform hover:scale-110"
-                                >
-                                    <XIcon className="w-6 h-6" />
-                                </button>
-                                <button
-                                    onClick={submitEdit}
-                                    title="Сохранить"
-                                    className="hover:text-blue-400 text-[var(--text-muted)] transition-transform hover:scale-110"
-                                >
-                                    <SaveIcon className="w-6 h-6" />
-                                </button>
-                            </div>
+                        {isEditing ? (
+                            <MessageEditor
+                                editText={editText}
+                                setEditText={setEditText}
+                                onSubmit={handleCancelEdit}
+                                onCancel={handleCancelEdit}
+                                onSubmitAndRegenerate={handleCancelEdit}
+                                submitEdit={submitEdit}
+                                isAssistant={true}
+                                textareaRef={textareaRef}
+                            />
+                        ) : (
+                            <AssistantMessageContent
+                                content={content}
+                                isEditing={isEditing}
+                                isStreaming={isStreaming}
+                                streamingThought={streamingThought}
+                                thoughtsEnded={thoughtsEnded}
+                                isSidebarOpen={isSidebarOpen}
+                                flattenChildrenToString={flattenChildrenToString}
+                            />
                         )}
-                    </React.Fragment>
+                    </>
                 )}
             </div>
         </div>

@@ -8,9 +8,26 @@
 /* ========== Theme variables ========== */
 /* Add class "theme-dark" or "theme-light" to <html> to switch theme */
 .theme-dark {
-  --bg-main: rgba(31,31,31,1);       /* основной фон приложения */
-  --bg-surface: rgba(41,42,45,1);
+  --bg-main: #0f0f12;                /* более тёмный основной фон */
+  --bg-surface: #18181c;              /* тёмный фон сайдбара */
   --bg-variant: rgba(62,67,72,1);   /* поверхность (sidebar, input, user msg, селект и т.д.) */
+  
+  /* Sidebar */
+  --sidebar-bg-top: #1a1a1f;
+  --sidebar-bg-bottom: #141418;
+  --sidebar-border: rgba(255,255,255,0.05);
+  
+  /* ChatItem */
+  --chatitem-active-border: rgba(255,255,255,0.1);
+  --chatitem-hover-bg: rgba(255,255,255,0.05);
+  --chatitem-icon-bg: rgba(255,255,255,0.05);
+  --chatitem-icon-hover-bg: rgba(255,255,255,0.1);
+  --chatitem-icon-color: #6b7280;
+  --chatitem-text: #9ca3af;
+  --chatitem-text-hover: #d1d5db;
+  --chatitem-date: #6b7280;
+  --chatitem-active-text: #ffffff;
+  --chatitem-active-date: #67e8f9;
   --text-main: #ccc;
   --text-muted: #888;
   --muted-weak: rgba(148,163,184,0.32);
@@ -35,6 +52,23 @@
   --text-muted: #222832;               /* приглушённый текст */
   --muted-weak: rgba(75,85,99,0.14);   /* слабый акцент для scroll/thumb */
   --border-color: rgba(0,0,0,0.08);    /* более явная граница на светлом фоне */
+
+  /* Sidebar */
+  --sidebar-bg-top: #ffffff;
+  --sidebar-bg-bottom: #f5f5f5;
+  --sidebar-border: rgba(0,0,0,0.08);
+  
+  /* ChatItem */
+  --chatitem-active-border: rgba(0,0,0,0.1);
+  --chatitem-hover-bg: rgba(0,0,0,0.04);
+  --chatitem-icon-bg: rgba(0,0,0,0.05);
+  --chatitem-icon-hover-bg: rgba(0,0,0,0.1);
+  --chatitem-icon-color: #4b5563;
+  --chatitem-text: #1f2937;
+  --chatitem-text-hover: #111827;
+  --chatitem-date: #6b7280;
+  --chatitem-active-text: #1f2937;
+  --chatitem-active-date: #4b5563;
 
   /* код и подсветка */
   --code-bg: #f3f4f6;                  /* фон блоков кода — светло-серый (не белый) */

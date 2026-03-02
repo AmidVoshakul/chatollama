@@ -1,10 +1,9 @@
 // src/components/ChatWindow.jsx
-import React, { useEffect, useRef, useState, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { FiCpu } from 'react-icons/fi'
-import Message from './Message'
-import AssistantMessage from './AssistantMessage'
-import ThoughtBubble from './ThoughtBubble'
+import React, { useEffect, useRef, useState } from 'react'
+import MessageList from './MessageList'
+import ModelSelector from './ModelSelector'
+import ScrollControls from './ScrollControls'
+import MessageInput from './MessageInput'
 import {
   isTempId,
   extractThoughtFromContent,
@@ -18,7 +17,6 @@ import {
   editMessage as apiEditMessage,
   regenerateAssistantMessageStream,
   stopGeneration,
-  generateResponse,
 } from '../api/chatApi'
 
 export default function ChatWindow({
@@ -41,11 +39,8 @@ export default function ChatWindow({
 
   const bottomRef = useRef(null)
   const topRef = useRef(null)
-  const textareaRef = useRef(null)
   const fetchLockRef = useRef(false)
-  const navigate = useNavigate()
 
-  // Fetch and normalize messages
   async function fetchMessagesForChat(chatId) {
     if (!chatId || fetchLockRef.current) return
     fetchLockRef.current = true
@@ -96,14 +91,6 @@ export default function ChatWindow({
         })
       }
       setMessages(normalized)
-      setTimeout(
-        () =>
-          bottomRef.current?.scrollIntoView({
-            behavior: 'smooth',
-            block: 'end',
-          }),
-        80
-      )
     } catch (err) {
       if (err.response?.status === 404) {
         setMessages([])
@@ -116,7 +103,6 @@ export default function ChatWindow({
     }
   }
 
-  // Stop generation
   async function stopGenerationHandler() {
     if (!chat?.id) return
     try {
@@ -127,7 +113,6 @@ export default function ChatWindow({
     }
   }
 
-  // Delete message
   async function deleteMessage(id) {
     if (isTempId(id)) {
       setMessages(prev => prev.filter(m => m.id !== id))
@@ -141,7 +126,6 @@ export default function ChatWindow({
     }
   }
 
-  // Edit message
   async function editMessage(id, newContent) {
     if (isTempId(id)) {
       setMessages(prev =>
@@ -157,7 +141,11 @@ export default function ChatWindow({
     }
   }
 
-  // Send a new user message with streaming
+  async function editAndRegenerate(id, newContent) {
+    await editMessage(id, newContent)
+    await regenerateMessage(id, model)
+  }
+
   async function sendMessage() {
     const text = input.trim()
     if (!text || isGenerating || !chat?.id) return
@@ -174,16 +162,8 @@ export default function ChatWindow({
       { id: streamId, role: 'assistant', content: '', _isStreaming: true, created_at: now, model: selectedModel },
     ])
     setInput('')
-    if (textareaRef.current) textareaRef.current.style.height = 'auto'
     setIsGenerating(true)
-    setTimeout(
-      () =>
-        bottomRef.current?.scrollIntoView({
-          behavior: 'smooth',
-          block: 'end',
-        }),
-      80
-    )
+
     let accumulatedContent = ''
     try {
       await sendUserMessageStream(
@@ -192,26 +172,15 @@ export default function ChatWindow({
         model,
         (chunk) => {
           accumulatedContent += chunk
-          
-          // При первом чанке контента - останавливаем shimmer мыслей
           if (accumulatedContent.length > 0) {
             setThoughtsEnded(true)
           }
-          
           setMessages(prev =>
             prev.map(m =>
               m.id === streamId
                 ? { ...m, content: accumulatedContent }
                 : m
             )
-          )
-          setTimeout(
-            () =>
-              bottomRef.current?.scrollIntoView({
-                behavior: 'smooth',
-                block: 'end',
-              }),
-            50
           )
         },
         (messageId) => {
@@ -243,7 +212,6 @@ export default function ChatWindow({
     }
   }
 
-  // Regenerate assistant message with streaming
   async function regenerateMessage(id, currentModel) {
     if (!id || isTempId(id)) return
     const resolveAssistantId = passedId => {
@@ -335,7 +303,6 @@ export default function ChatWindow({
     }
   }
 
-  // Enter = send, Shift+Enter = newline
   function handleKeyDown(e) {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
@@ -343,7 +310,6 @@ export default function ChatWindow({
     }
   }
 
-  // Fetch messages when chat changes
   useEffect(() => {
     if (!chat) {
       setMessages([])
@@ -356,7 +322,6 @@ export default function ChatWindow({
     setStreamingThought('')
     setThoughtsEnded(false)
     fetchMessagesForChat(chat.id)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chat?.id])
 
   if (!chat) {
@@ -367,264 +332,44 @@ export default function ChatWindow({
     )
   }
 
-  const hasThoughtPresent = useMemo(
-    () => messages.some(m => m.type === 'thought'),
-    [messages]
-  )
-
   return (
     <div className="flex flex-col flex-1 p-4 bg-[var(--bg-main)] text-[var(--text-main)]">
-      {/* Messages */}
-      <div className="flex-1 overflow-auto space-y-4 pb-28 custom-scroll">
-        <div ref={topRef} />
-        {messages.map((msg, idx) => {
-          const isLast = idx === messages.length - 1
-          const isLatestAssistant =
-            isLast && msg.role === 'assistant' && (msg._isStreaming || streamingThought)
+      <MessageList
+        messages={messages}
+        model={model}
+        isSidebarOpen={isSidebarOpen}
+        transparentMode={transparentMode}
+        setToast={setToast}
+        onDelete={deleteMessage}
+        onEdit={editMessage}
+        onEditAndRegenerate={editAndRegenerate}
+        onRegenerate={regenerateMessage}
+        streamingThought={streamingThought}
+        thoughtsEnded={thoughtsEnded}
+        topRef={topRef}
+        bottomRef={bottomRef}
+      />
 
-          if (
-            msg.role === 'assistant' &&
-            msg.hiddenWhileThought &&
-            hasThoughtPresent
-          ) {
-            return null
-          }
-
-          if (msg.type === 'thought') {
-            return (
-              <ThoughtBubble
-                key={msg.id}
-                content={msg.content}
-                isGenerating={false}
-              />
-            )
-          }
-
-          if (msg.role === 'assistant' && isLatestAssistant) {
-            return (
-              <AssistantMessage
-                key={msg.id}
-                content={msg.content}
-                model={msg.model}
-                timestamp={msg.created_at}
-                isTemp={msg._isTemp}
-                hasError={msg._error}
-                isStreaming={msg._isStreaming}
-                isLatestAssistant={isLatestAssistant}
-                isSidebarOpen={isSidebarOpen}
-                transparentMode={transparentMode}
-                setToast={setToast}
-                onDelete={() => deleteMessage(msg.id)}
-                onEdit={(newContent) => editMessage(msg.id, newContent)}
-                onEditAndRegenerate={(newContent) => editAndRegenerate(msg.id, newContent)}
-                onRegenerate={() => regenerateMessage(msg.id, model)}
-                streamingThought={streamingThought}
-                thoughtsEnded={thoughtsEnded}
-              />
-            )
-          }
-
-          return (
-            <Message
-              key={msg.id}
-              role={msg.role}
-              content={msg.content}
-              model={msg.model}
-              timestamp={msg.created_at}
-              isTemp={msg._isTemp}
-              hasError={msg._error}
-              isStreaming={msg._isStreaming}
-              onDelete={() => deleteMessage(msg.id)}
-              onEdit={(newContent) => editMessage(msg.id, newContent)}
-              onEditAndRegenerate={(newContent) => editAndRegenerate(msg.id, newContent)}
-              onRegenerate={() => regenerateMessage(msg.id, model)}
-              isLatestAssistant={isLatestAssistant}
-              isSidebarOpen={isSidebarOpen}
-              transparentMode={transparentMode}
-              setToast={setToast}
-            />
-          )
-        })}
-        <div ref={bottomRef} />
-      </div>
-
-      {/* Model selector & controls */}
       <div className="relative">
         <div className="flex items-center justify-between px-1 mt-2">
-          <div className="relative flex items-center gap-2">
-            <button
-              onClick={() => setDropdownOpen(v => !v)}
-              className="flex items-center bg-[var(--bg-surface)] px-3 py-2 rounded-lg text-sm w-64 hover:bg-gradient-to-r hover:from-purple-600 hover:to-indigo-600"
-              aria-haspopup="listbox"
-              aria-expanded={dropdownOpen}
-              title="Выбрать модель"
-            >
-              <span className="truncate">{model}</span>
-              <span
-                className={`ml-2 transition-transform ${
-                  dropdownOpen ? 'rotate-180' : ''
-                }`}
-              >
-                ⌄
-              </span>
-            </button>
-            {dropdownOpen && (
-              <ul
-                role="listbox"
-                className="absolute bottom-full left-0 w-64 max-h-[calc(100vh-200px)] overflow-y-auto bg-[var(--bg-surface)] rounded-lg shadow-lg z-10 custom-scroll -translate-y-3"
-              >
-                {models.map(m => (
-                  <li
-                    key={m}
-                    onClick={() => {
-                      onModelChange(m)
-                      setDropdownOpen(false)
-                    }}
-                    className="px-3 py-2 cursor-pointer border-b last:border-b-0 border-gray-700 hover:bg-gradient-to-r hover:from-purple-600 hover:to-indigo-600"
-                    role="option"
-                    aria-selected={m === model}
-                  >
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={`inline-block w-2 h-2 mr-2 rounded-full ${
-                          m === model ? 'bg-green-400 animate-pulse' : 'bg-red-400'
-                        }`}
-                      />
-                      <span
-                        title={m}
-                        className={`truncate ${
-                          m === model ? 'text-green-300 font-medium' : 'text-white'
-                        }`}
-                      >
-                        {m}
-                      </span>
-                    </div>
-                  </li>
-
-
-                ))}
-              </ul>
-            )}
-            <button
-              onClick={() => navigate('/models')}
-              className="w-9 h-9 flex items-center justify-center rounded-full bg-[var(--bg-surface)] hover:bg-gradient-to-r hover:from-purple-600 hover:to-indigo-600"
-              aria-label="Перейти к моделям"
-              title="Открыть менеджер моделей"
-            >
-              <FiCpu className="w-5 h-5" aria-hidden />
-            </button>
-          </div>
-
-          <div className="flex items-center gap-2 mr-6">
-            <button
-              onClick={() =>
-                topRef.current?.scrollIntoView({
-                  behavior: 'smooth',
-                  block: 'start',
-                })
-              }
-              className="w-9 h-9 flex items-center justify-center rounded-full bg-[var(--bg-surface)] hover:bg-gradient-to-r hover:from-purple-600 hover:to-indigo-600"
-              aria-label="Прокрутить вверх"
-              title="Прокрутить к началу чата"
-            >
-              <span className="translate-y-[6px]">⌃</span>
-            </button>
-            <button
-              onClick={() =>
-                bottomRef.current?.scrollIntoView({
-                  behavior: 'smooth',
-                  block: 'end',
-                })
-              }
-              className="w-9 h-9 flex items-center justify-center rounded-full bg-[var(--bg-surface)] hover:bg-gradient-to-r hover:from-purple-600 hover:to-indigo-600"
-              aria-label="Прокрутить вниз"
-              title="Прокрутить к последнему сообщению"
-            >
-              <span className="-translate-y-[2px]">⌄</span>
-            </button>
-          </div>
+          <ModelSelector
+            model={model}
+            models={models}
+            onModelChange={onModelChange}
+            dropdownOpen={dropdownOpen}
+            setDropdownOpen={setDropdownOpen}
+          />
+          <ScrollControls topRef={topRef} bottomRef={bottomRef} />
         </div>
 
-        {/* Input area */}
-        <textarea
-          ref={textareaRef}
-          rows={2}
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          onInput={e => {
-            e.target.style.height = 'auto'
-            e.target.style.height = `${Math.min(
-              e.target.scrollHeight,
-              window.innerHeight * 0.5
-            )}px`
-          }}
-          onKeyDown={handleKeyDown}
-          placeholder="Введите сообщение..."
-          className="w-full mt-2 bg-[var(--bg-surface)] p-3 rounded-xl resize-none focus:outline-none custom-scroll"
+        <MessageInput
+          input={input}
+          setInput={setInput}
+          isGenerating={isGenerating}
+          onSend={sendMessage}
+          onStop={stopGenerationHandler}
+          handleKeyDown={handleKeyDown}
         />
-
-        {isGenerating && (
-          <div
-            className="absolute bottom-6 right-20 text-sm text-[var(--text-muted)]"
-            role="status"
-            aria-live="polite"
-          >
-            <span className="flex items-center gap-1 animate-think-pulse">
-              Модель думает
-              <span
-                className="inline-block w-1.5 h-1.5 bg-[var(--text-muted)] rounded-full animate-think-pulse"
-                style={{ animationDelay: '0s' }}
-              />
-              <span
-                className="inline-block w-1.5 h-1.5 bg-[var(--text-muted)] rounded-full animate-think-pulse"
-                style={{ animationDelay: '0.2s' }}
-              />
-              <span
-                className="inline-block w-1.5 h-1.5 bg-[var(--text-muted)] rounded-full animate-think-pulse"
-                style={{ animationDelay: '0.4s' }}
-              />
-            </span>
-          </div>
-        )}
-
-        <button
-          onClick={isGenerating ? stopGenerationHandler : sendMessage}
-          disabled={!input.trim() && !isGenerating}
-          className={`absolute bottom-6 right-6 w-10 h-10 rounded-full flex items-center justify-center transition ${
-            isGenerating
-              ? 'bg-gradient-to-r from-purple-600 to-indigo-600 animate-pulse'
-              : 'bg-[var(--accent-gradient-from)] hover:bg-gradient-to-r hover:from-purple-600 hover:to-indigo-600'
-          } ${
-            !input.trim() && !isGenerating
-              ? 'opacity-60 pointer-events-none'
-              : ''
-          }`}
-          aria-label={
-            isGenerating ? 'Остановить генерацию' : 'Отправить сообщение'
-          }
-        >
-          {isGenerating ? (
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="w-5 h-5 text-white"
-              fill="currentColor"
-              viewBox="0 0 24 24"
-              aria-hidden
-            >
-              <path d="M6 6h12v12H6z" />
-            </svg>
-          ) : (
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="w-5 h-5 text-white"
-              fill="currentColor"
-              viewBox="0 0 24 24"
-              aria-hidden
-            >
-              <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2v7z" />
-            </svg>
-          )}
-        </button>
       </div>
     </div>
   )

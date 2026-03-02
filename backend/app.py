@@ -333,26 +333,23 @@ def call_ollama_sync(model: str, prompt: str, timeout: int = 120) -> str:
 
 @app.post("/api/chats/{chat_id}/messages", response_model=MessageRead)
 def send_message(chat_id: int, msg: MessageCreate):
-    # Validate chat exists and insert user message
     with Session(engine) as session:
         if not session.get(Chat, chat_id):
             raise HTTPException(status_code=404, detail="Chat not found")
+        
         user_msg = Message(chat_id=chat_id, role=msg.role, content=msg.content, model=msg.model)
         session.add(user_msg)
         session.commit()
         session.refresh(user_msg)
         logger.info("Inserted user message id=%s", user_msg.id)
 
-    # Build history including new user message
-    with Session(engine) as session:
         history = session.exec(select(Message).where(Message.chat_id == chat_id).order_by(Message.created_at)).all()
+    
     prompt = "\n".join(f"{m.role}: {m.content}" for m in history)
     logger.info("Calling model for chat %s (prompt len=%d)", chat_id, len(prompt))
 
-    # Call model synchronously
     final_text = call_ollama_sync(msg.model, prompt, timeout=180)
 
-    # Save assistant message (append)
     with Session(engine) as session:
         bot_msg = Message(chat_id=chat_id, role="assistant", content=final_text, model=msg.model)
         session.add(bot_msg)
@@ -379,8 +376,8 @@ def send_message_stream(chat_id: int, msg: MessageCreate):
             session.refresh(user_msg)
             logger.info("Inserted user message id=%s (streaming)", user_msg.id)
 
-        with Session(engine) as session:
             history = session.exec(select(Message).where(Message.chat_id == chat_id).order_by(Message.created_at)).all()
+        
         prompt = "\n".join(f"{m.role}: {m.content}" for m in history)
         logger.info("Calling model for chat %s (streaming, prompt len=%d)", chat_id, len(prompt))
 
@@ -468,21 +465,19 @@ def edit_message(message_id: int, data: dict):
 
 @app.post("/api/messages/{message_id}/regenerate", response_model=MessageRead)
 def regenerate_message(message_id: int, data: dict = Body(default={})):
-    # Locate existing assistant message
     with Session(engine) as session:
         msg = session.get(Message, message_id)
         if not msg or msg.role != "assistant":
             raise HTTPException(status_code=404, detail="Message not found or not assistant")
-        # Build prompt using history (include user + assistant context)
+        
         history = session.exec(select(Message).where(Message.chat_id == msg.chat_id).order_by(Message.created_at)).all()
         prompt = "\n".join(f"{m.role}: {m.content}" for m in history if m.role in ("user", "assistant"))
         model = data.get("model", msg.model)
+    
     logger.info("Regenerating message id=%s using model=%s", message_id, model)
 
-    # Call model synchronously
     final_text = call_ollama_sync(model, prompt, timeout=180)
 
-    # Update existing assistant message in-place
     with Session(engine) as session:
         existing = session.get(Message, message_id)
         if not existing:
@@ -511,7 +506,7 @@ def regenerate_message_stream(message_id: int, body: dict = Body(default={})):
             history = session.exec(select(Message).where(Message.chat_id == chat_id).order_by(Message.created_at)).all()
             prompt = "\n".join(f"{m.role}: {m.content}" for m in history if m.role in ("user", "assistant"))
             model = body.get("model", msg.model)
-
+        
         logger.info("Regenerating message id=%s (streaming) using model=%s", message_id, model)
 
         url = f"{OLLAMA_HOST}/api/generate"
