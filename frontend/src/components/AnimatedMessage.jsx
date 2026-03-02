@@ -65,9 +65,32 @@ export default function AnimatedMessage({
                                 code({inline, className, children, ...props}) {
                                     const language = className ? className.replace('language-', '') : ''
                                     const codeText = String(children).replace(/\n$/, '')
-                                    if (inline) {
+                                    // Дополнительная проверка: если код короткий и без переносов строк - считаем inline
+                                    const isShortCode = !codeText.includes('\n') && codeText.length < 100
+                                    if (inline || isShortCode) {
                                         return (
-                                            <code className={className} {...props}>
+                                            <code 
+                                                className={`inline-code ${className}`} 
+                                                {...props}
+                                                style={{
+                                                    backgroundColor: 'rgba(40,40,40,0.8)',
+                                                    color: '#ff6b9d',
+                                                    padding: '0.1em 0.3em',
+                                                    borderRadius: '0.25rem',
+                                                    fontSize: '0.9em',
+                                                    fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace',
+                                                    display: 'inline-block',
+                                                    lineHeight: '1.2',
+                                                    cursor: 'pointer',
+                                                    transition: 'all 0.2s ease'
+                                                }}
+                                                onClick={() => {
+                                                    if (navigator.clipboard) {
+                                                        navigator.clipboard.writeText(String(children).replace(/\n$/, ''))
+                                                    }
+                                                }}
+                                                title="Нажмите для копирования"
+                                            >
                                                 {children}
                                             </code>
                                         )
