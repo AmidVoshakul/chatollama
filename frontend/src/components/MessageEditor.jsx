@@ -195,7 +195,7 @@ export default function MessageEditor({
                             "
                         >
                             <RefreshIcon className="w-4 h-4" />
-                            Сохранить и обновить
+                            Сохранить и отправить
                         </button>
                     </div>
                 </div>

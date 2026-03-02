@@ -44,6 +44,7 @@ export async function sendUserMessageStream(chatId, text, model, onChunk, onDone
         if (!response.ok) {
             const errorText = await response.text()
             if (response.status === 0 || response.type === 'error') {
+                onAbort?.('abort')
                 return
             }
             onError?.(errorText)
@@ -87,7 +88,7 @@ export async function sendUserMessageStream(chatId, text, model, onChunk, onDone
         }
     } catch (e) {
         if (e.name === 'AbortError' || e.type === 'abort') {
-            onAbort?.()
+            onAbort?.('abort')
             return
         }
         console.error('Stream error:', e)
@@ -102,7 +103,11 @@ export async function stopGeneration(chatId) {
         currentAbortController.abort()
         currentAbortController = null
     }
-    await axios.post(`/api/chats/${chatId}/stop`)
+    try {
+        await axios.post(`/api/chats/${chatId}/stop`)
+    } catch (e) {
+        console.log('Stop generation:', e.message)
+    }
 }
 
 // Генерация ответа без создания сообщения пользователя

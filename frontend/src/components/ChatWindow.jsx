@@ -137,8 +137,119 @@ export default function ChatWindow({
   }
 
   async function editAndRegenerate(id, newContent) {
-    await editMessage(id, newContent)
-    await regenerateMessage(id, model)
+    if (!chat?.id) return
+    
+    const msgIndex = messages.findIndex(m => m.id === id)
+    if (msgIndex === -1) return
+    
+    const msg = messages[msgIndex]
+    
+    if (msg.role === 'user') {
+      try {
+        await apiEditMessage(id, newContent)
+        
+        const messagesToDelete = messages.slice(msgIndex + 1)
+        for (const m of messagesToDelete) {
+          if (!isTempId(m.id)) {
+            try {
+              await apiDeleteMessage(m.id)
+            } catch {}
+          }
+        }
+        
+        const raw = await fetchMessages(chat.id)
+        
+        const lastUserMsg = raw.find(m => m.id === id)
+        if (!lastUserMsg) return
+        
+        const newMessages = [...raw]
+        const userMsgIdx = newMessages.findIndex(m => m.id === id)
+        
+        const prompt = newMessages
+          .slice(0, userMsgIdx + 1)
+          .map(m => `${m.role}: ${m.content}`)
+          .join('\n')
+        
+        const tempId = `temp-${Date.now()}`
+        const streamId = `stream-${Date.now()}`
+        const now = new Date().toISOString()
+        
+        setMessages(prev => [
+          ...prev.filter(m => m.id !== id || m.role !== 'user'),
+          { id: id, role: 'user', content: newContent, created_at: now },
+          { id: streamId, role: 'assistant', content: '', _isStreaming: true, created_at: now, model: model },
+        ])
+        setIsGenerating(true)
+        setStreamingThought('')
+        setThoughtsEnded(false)
+        
+        let accumulatedContent = ''
+        
+        await sendUserMessageStream(
+          chat.id,
+          newContent,
+          model,
+          (chunk) => {
+            accumulatedContent += chunk
+            if (accumulatedContent.length > 0) {
+              setThoughtsEnded(true)
+            }
+            setMessages(prev =>
+              prev.map(m =>
+                m.id === streamId ? { ...m, content: accumulatedContent } : m
+              )
+            )
+          },
+          (messageId) => {
+            if (streamingThought) {
+              addShownThoughtId(`thought-${messageId}`)
+            }
+            setMessages(prev =>
+              prev.map(m =>
+                m.id === streamId ? { ...m, _isStreaming: false, id: messageId } : m
+              )
+            )
+            setIsGenerating(false)
+          },
+          (error) => {
+            if (error && (error.includes('abort') || error.includes('Abort'))) {
+              setMessages(prev =>
+                prev.map(m =>
+                  m.id === streamId ? { ...m, _isStreaming: false } : m
+                )
+              )
+              setIsGenerating(false)
+              return
+            }
+            setMessages(prev =>
+              prev.map(m =>
+                m.id === streamId ? { ...m, _error: true, _isStreaming: false } : m
+              )
+            )
+            setToast?.({ type: 'error', text: error || 'Ошибка генерации' })
+            setIsGenerating(false)
+          },
+          (thought) => {
+            setThoughtsEnded(false)
+            setStreamingThought(prev => prev + thought)
+          },
+          () => {
+            setMessages(prev =>
+              prev.map(m =>
+                m.id === streamId ? { ...m, _isStreaming: false } : m
+              )
+            )
+            setIsGenerating(false)
+            fetchMessagesForChat(chat.id)
+          }
+        )
+      } catch {
+        setToast?.({ type: 'error', text: 'Ошибка при обновлении сообщения' })
+      }
+    } else {
+      await editMessage(id, newContent)
+      await regenerateMessage(id, model)
+    }
   }
 
   async function sendMessage() {
@@ -192,6 +303,15 @@ export default function ChatWindow({
           setIsGenerating(false)
         },
         (error) => {
+          if (error && (error.includes('abort') || error.includes('Abort'))) {
+            setMessages(prev =>
+              prev.map(m =>
+                m.id === streamId ? { ...m, _isStreaming: false } : m
+              )
+            )
+            setIsGenerating(false)
+            return
+          }
           setMessages(prev =>
             prev.map(m =>
               m.id === streamId ? { ...m, _error: true, _isStreaming: false } : m
@@ -211,6 +331,7 @@ export default function ChatWindow({
             )
           )
           setIsGenerating(false)
+          fetchMessagesForChat(chat.id)
         }
       )
     } catch {
