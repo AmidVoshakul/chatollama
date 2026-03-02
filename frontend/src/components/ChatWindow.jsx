@@ -8,6 +8,7 @@ import {
   isTempId,
   extractThoughtFromContent,
   getShownThoughtIds,
+  addShownThoughtId,
   removeShownThoughtIdForMessage,
 } from '../utils/chatUtils'
 import {
@@ -66,6 +67,7 @@ export default function ChatWindow({
                 type: 'text',
               })
             } else {
+              addShownThoughtId(thoughtId)
               normalized.push({
                 id: thoughtId,
                 role: 'assistant',
@@ -78,7 +80,6 @@ export default function ChatWindow({
                 id: m.id,
                 content: contentWithoutThought,
                 type: 'text',
-                hiddenWhileThought: thoughtId,
               })
             }
             continue
@@ -184,6 +185,9 @@ export default function ChatWindow({
           )
         },
         (messageId) => {
+          if (streamingThought) {
+            addShownThoughtId(`thought-${messageId}`)
+          }
           setMessages(prev =>
             prev.map(m =>
               m.id === streamId
