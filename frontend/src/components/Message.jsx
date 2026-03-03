@@ -21,6 +21,7 @@ export default function Message({
     hasError,
     isSidebarOpen = true,
     isStreaming = false,
+    isRegenerating = false,
     streamingThought,
     thoughtsEnded = false,
 }) {
@@ -271,6 +272,7 @@ export default function Message({
                                     content={content}
                                     isEditing={isEditing}
                                     isStreaming={isStreaming}
+                                    isRegenerating={isRegenerating}
                                     streamingThought={streamingThought}
                                     thoughtsEnded={thoughtsEnded}
                                     isSidebarOpen={isSidebarOpen}

@@ -47,7 +47,7 @@ export default function MessageList({
       {messages.map((msg, idx) => {
         const isLast = idx === messages.length - 1
         const isLatestAssistant =
-          isLast && msg.role === 'assistant' && (msg._isStreaming || streamingThought)
+          isLast && msg.role === 'assistant' && (msg._isStreaming || msg._isRegenerating || streamingThought)
 
         if (
           msg.role === 'assistant' &&
@@ -72,6 +72,7 @@ export default function MessageList({
               isTemp={msg._isTemp}
               hasError={msg._error}
               isStreaming={msg._isStreaming}
+              isRegenerating={msg._isRegenerating}
               isLatestAssistant={isLatestAssistant}
               isSidebarOpen={isSidebarOpen}
               transparentMode={transparentMode}

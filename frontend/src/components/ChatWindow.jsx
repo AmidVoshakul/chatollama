@@ -14,6 +14,7 @@ import {
 import {
   fetchMessages,
   sendUserMessageStream,
+  sendGenerateStream,
   deleteMessage as apiDeleteMessage,
   editMessage as apiEditMessage,
   regenerateAssistantMessageStream,
@@ -98,11 +99,24 @@ export default function ChatWindow({
 
   async function stopGenerationHandler() {
     if (!chat?.id) return
+    
+    // Немедленно очищаем UI - оставляем только последнее сообщение пользователя
+    setMessages(currentMessages => {
+      const lastUserIndex = currentMessages.findLastIndex(m => m.role === 'user')
+      if (lastUserIndex >= 0) {
+        return currentMessages.slice(0, lastUserIndex + 1)
+      }
+      return currentMessages
+    })
+    setStreamingThought('')
+    setThoughtsEnded(false)
+    setIsGenerating(false)
+    
+    // Отправляем запрос на остановку бэкенду
     try {
       await stopGeneration(chat.id)
-      setIsGenerating(false)
     } catch {
-      setToast?.({ type: 'error', text: 'Не удалось остановить генерацию' })
+      // Игнорируем ошибки
     }
   }
 
@@ -146,8 +160,7 @@ export default function ChatWindow({
     
     if (msg.role === 'user') {
       try {
-        await apiEditMessage(id, newContent)
-        
+        // Сначала удаляем сообщения после редактируемого
         const messagesToDelete = messages.slice(msgIndex + 1)
         for (const m of messagesToDelete) {
           if (!isTempId(m.id)) {
@@ -157,38 +170,35 @@ export default function ChatWindow({
           }
         }
         
-        const raw = await fetchMessages(chat.id)
+        // Редактируем сообщение пользователя
+        await apiEditMessage(id, newContent)
         
-        const lastUserMsg = raw.find(m => m.id === id)
-        if (!lastUserMsg) return
-        
-        const newMessages = [...raw]
-        const userMsgIdx = newMessages.findIndex(m => m.id === id)
-        
-        const prompt = newMessages
-          .slice(0, userMsgIdx + 1)
-          .map(m => `${m.role}: ${m.content}`)
-          .join('\n')
-        
-        const tempId = `temp-${Date.now()}`
-        const streamId = `stream-${Date.now()}`
+        // Обновляем UI и запускаем генерацию ответа
         const now = new Date().toISOString()
+        const streamId = `stream-${Date.now()}`
         
+        // Добавляем временное сообщение ассистента
         setMessages(prev => [
-          ...prev.filter(m => m.id !== id || m.role !== 'user'),
-          { id: id, role: 'user', content: newContent, created_at: now },
+          ...prev.slice(0, msgIndex + 1),
           { id: streamId, role: 'assistant', content: '', _isStreaming: true, created_at: now, model: model },
         ])
         setIsGenerating(true)
         setStreamingThought('')
         setThoughtsEnded(false)
         
+        // Формируем prompt
+        const prompt = messages
+          .slice(0, msgIndex + 1)
+          .map(m => `${m.role}: ${m.role === 'user' && m.id === id ? newContent : m.content}`)
+          .join('\n')
+        
         let accumulatedContent = ''
         
-        await sendUserMessageStream(
+        // Используем стриминг генерацию
+        await sendGenerateStream(
           chat.id,
-          newContent,
           model,
+          prompt,
           (chunk) => {
             accumulatedContent += chunk
             if (accumulatedContent.length > 0) {
@@ -200,6 +210,10 @@ export default function ChatWindow({
               )
             )
           },
+          (thought) => {
+            setThoughtsEnded(false)
+            setStreamingThought(prev => prev + thought)
+          },
           (messageId) => {
             if (streamingThought) {
               addShownThoughtId(`thought-${messageId}`)
@@ -210,14 +224,20 @@ export default function ChatWindow({
               )
             )
             setIsGenerating(false)
+            fetchMessagesForChat(chat.id)
           },
           (error) => {
             if (error && (error.includes('abort') || error.includes('Abort'))) {
-              setMessages(prev =>
-                prev.map(m =>
-                  m.id === streamId ? { ...m, _isStreaming: false } : m
-                )
-              )
+              // При отмене очищаем все сообщения после последнего сообщения пользователя
+              setMessages(currentMessages => {
+                const lastUserIndex = currentMessages.findLastIndex(m => m.role === 'user')
+                if (lastUserIndex >= 0) {
+                  return currentMessages.slice(0, lastUserIndex + 1)
+                }
+                return currentMessages
+              })
+              setStreamingThought('')
+              setThoughtsEnded(false)
               setIsGenerating(false)
               return
             }
@@ -228,19 +248,6 @@ export default function ChatWindow({
             )
             setToast?.({ type: 'error', text: error || 'Ошибка генерации' })
             setIsGenerating(false)
-          },
-          (thought) => {
-            setThoughtsEnded(false)
-            setStreamingThought(prev => prev + thought)
-          },
-          () => {
-            setMessages(prev =>
-              prev.map(m =>
-                m.id === streamId ? { ...m, _isStreaming: false } : m
-              )
-            )
-            setIsGenerating(false)
-            fetchMessagesForChat(chat.id)
           }
         )
       } catch {
@@ -304,11 +311,16 @@ export default function ChatWindow({
         },
         (error) => {
           if (error && (error.includes('abort') || error.includes('Abort'))) {
-            setMessages(prev =>
-              prev.map(m =>
-                m.id === streamId ? { ...m, _isStreaming: false } : m
-              )
-            )
+            // При отмене очищаем все сообщения после последнего сообщения пользователя
+            setMessages(currentMessages => {
+              const lastUserIndex = currentMessages.findLastIndex(m => m.role === 'user')
+              if (lastUserIndex >= 0) {
+                return currentMessages.slice(0, lastUserIndex + 1)
+              }
+              return currentMessages
+            })
+            setStreamingThought('')
+            setThoughtsEnded(false)
             setIsGenerating(false)
             return
           }
@@ -341,21 +353,36 @@ export default function ChatWindow({
 
   async function regenerateMessage(id, currentModel) {
     if (!id || isTempId(id)) return
-    const resolveAssistantId = passedId => {
-      const byId = messages.find(m => m.id === passedId)
-      if (byId && byId.role === 'assistant') return passedId
-      if (byId && byId.role === 'user') {
-        const idx = messages.findIndex(m => m.id === passedId)
-        for (let i = idx + 1; i < messages.length; i++) {
-          if (messages[i].role === 'assistant') return messages[i].id
+    
+    let targetId = id
+    let targetRole = null
+    
+    const msg = messages.find(m => m.id === id)
+    if (msg) {
+      if (msg.role === 'user') {
+        targetRole = 'user'
+      } else if (msg.role === 'assistant') {
+        targetRole = 'assistant'
+      }
+    }
+    
+    let assistantId = null
+    if (targetRole === 'assistant') {
+      assistantId = id
+    } else if (targetRole === 'user') {
+      const idx = messages.findIndex(m => m.id === id)
+      for (let i = idx + 1; i < messages.length; i++) {
+        if (messages[i].role === 'assistant') {
+          assistantId = messages[i].id
+          break
         }
       }
-      const lastAssistant = [...messages]
-        .reverse()
-        .find(m => m.role === 'assistant')
-      return lastAssistant?.id || null
     }
-    const assistantId = resolveAssistantId(id)
+    
+    if (!assistantId) {
+      assistantId = [...messages].reverse().find(m => m.role === 'assistant')?.id
+    }
+    
     if (!assistantId) {
       setIsGenerating(false)
       setToast?.({
@@ -367,14 +394,17 @@ export default function ChatWindow({
 
     const streamId = `regen-${assistantId}-${Date.now()}`
     const now = new Date().toISOString()
+    
     setMessages(prev =>
       prev.map(m =>
         m.id === assistantId
-          ? { ...m, content: '', _isRegenerating: true, _tempStreamId: streamId, created_at: now }
+          ? { ...m, content: '', thinking: '', _isRegenerating: true, _tempStreamId: streamId, created_at: now }
           : m
       )
     )
     setIsGenerating(true)
+    setStreamingThought('')
+    setThoughtsEnded(false)
 
     try {
       removeShownThoughtIdForMessage(assistantId)
@@ -393,22 +423,39 @@ export default function ChatWindow({
             )
           )
         },
+        (thought) => {
+          setThoughtsEnded(false)
+          setStreamingThought(prev => prev + thought)
+        },
         () => {
           setMessages(prev =>
             prev.map(m =>
               m._tempStreamId === streamId
-                ? { ...m, _isRegenerating: false, _tempStreamId: null }
+                ? { ...m, _isRegenerating: false, _tempStreamId: null, created_at: now }
                 : m
             )
           )
           setIsGenerating(false)
+          fetchMessagesForChat(chat.id)
         },
         (error) => {
+          if (error && (error.includes('abort') || error.includes('Abort'))) {
+            // При отмене очищаем все сообщения после последнего сообщения пользователя
+            setMessages(currentMessages => {
+              const lastUserIndex = currentMessages.findLastIndex(m => m.role === 'user')
+              if (lastUserIndex >= 0) {
+                return currentMessages.slice(0, lastUserIndex + 1)
+              }
+              return currentMessages
+            })
+            setStreamingThought('')
+            setThoughtsEnded(false)
+            setIsGenerating(false)
+            return
+          }
           setMessages(prev =>
             prev.map(m =>
-              m._tempStreamId === streamId
-                ? { ...m, _isRegenerating: false, _tempStreamId: null, _error: true }
-                : m
+              m._tempStreamId === streamId ? { ...m, _isRegenerating: false, _tempStreamId: null, _error: true } : m
             )
           )
           setToast?.({ type: 'error', text: error || 'Ошибка перегенерации' })
@@ -425,7 +472,6 @@ export default function ChatWindow({
       } else {
         setToast?.({ type: 'error', text: 'Ошибка перегенерации' })
       }
-    } finally {
       setIsGenerating(false)
     }
   }

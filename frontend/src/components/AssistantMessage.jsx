@@ -10,6 +10,7 @@ export default function AssistantMessage({
   isTemp,
   hasError,
   isStreaming,
+  isRegenerating,
   isLatestAssistant,
   isSidebarOpen,
   transparentMode,
@@ -32,6 +33,7 @@ export default function AssistantMessage({
         isTemp={isTemp}
         hasError={hasError}
         isStreaming={isStreaming}
+        isRegenerating={isRegenerating}
         thoughtsEnded={thoughtsEnded}
         streamingThought={streamingThought}
         onDelete={onDelete}

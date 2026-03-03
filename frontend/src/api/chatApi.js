@@ -110,6 +110,79 @@ export async function stopGeneration(chatId) {
     }
 }
 
+// Streaming генерация ответа без создания сообщения пользователя
+export async function sendGenerateStream(chatId, model, prompt, onChunk, onThought, onDone, onError) {
+    if (currentAbortController) {
+        currentAbortController.abort()
+    }
+    currentAbortController = new AbortController()
+    
+    try {
+        const response = await fetch(`/api/chats/${chatId}/generate/stream`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ model, prompt }),
+            signal: currentAbortController.signal,
+        })
+
+        if (!response.ok) {
+            const errorText = await response.text()
+            if (response.status === 0 || response.type === 'error') {
+                onError?.('abort')
+                return
+            }
+            onError?.(errorText)
+            currentAbortController = null
+            return
+        }
+
+        const reader = response.body.getReader()
+        const decoder = new TextDecoder()
+
+        while (true) {
+            const {done, value} = await reader.read()
+            if (done) break
+
+            const text = decoder.decode(value, {stream: true})
+            const lines = text.split('\n')
+
+            for (const line of lines) {
+                if (line.startsWith('data:')) {
+                    const data = line.slice(5).trim()
+                    if (data.startsWith('error:')) {
+                        onError?.(data.slice(6))
+                        return
+                    }
+                    if (data.startsWith('thought:')) {
+                        onThought?.(data.slice(8))
+                        continue
+                    }
+                    if (data.startsWith('chunk:')) {
+                        onChunk?.(data.slice(6))
+                        continue
+                    }
+                    if (data.startsWith('done:')) {
+                        const messageId = parseInt(data.slice(5), 10)
+                        onDone?.(messageId)
+                        currentAbortController = null
+                        return
+                    }
+                }
+            }
+        }
+    } catch (e) {
+        if (e.name === 'AbortError' || e.type === 'abort') {
+            onError?.('abort')
+            return
+        }
+        console.error('Generate stream error:', e)
+    } finally {
+        currentAbortController = null
+    }
+}
+
 // Генерация ответа без создания сообщения пользователя
 export async function generateResponse(chatId, model, prompt) {
     const {data} = await axios.post(`/api/chats/${chatId}/generate`, {
@@ -136,48 +209,74 @@ export async function regenerateAssistantMessage(messageId, model) {
 }
 
 // Streaming перегенерация ответа ассистента
-export async function regenerateAssistantMessageStream(messageId, model, onChunk, onDone, onError) {
-    const response = await fetch(`/api/messages/${messageId}/regenerate/stream`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({model}),
-    })
-
-    if (!response.ok) {
-        const errorText = await response.text()
-        onError?.(errorText)
-        return
+export async function regenerateAssistantMessageStream(messageId, model, onChunk, onThought, onDone, onError, onAbort) {
+    if (currentAbortController) {
+        currentAbortController.abort()
     }
+    currentAbortController = new AbortController()
+    
+    try {
+        const response = await fetch(`/api/messages/${messageId}/regenerate/stream`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({model}),
+            signal: currentAbortController.signal,
+        })
 
-    const reader = response.body.getReader()
-    const decoder = new TextDecoder()
+        if (!response.ok) {
+            const errorText = await response.text()
+            if (response.status === 0 || response.type === 'error') {
+                onAbort?.('abort')
+                return
+            }
+            onError?.(errorText)
+            currentAbortController = null
+            return
+        }
 
-    while (true) {
-        const {done, value} = await reader.read()
-        if (done) break
+        const reader = response.body.getReader()
+        const decoder = new TextDecoder()
 
-        const text = decoder.decode(value, {stream: true})
-        const lines = text.split('\n')
+        while (true) {
+            const {done, value} = await reader.read()
+            if (done) break
 
-        for (const line of lines) {
-            if (line.startsWith('data:')) {
-                const data = line.slice(5).trim()
-                if (data.startsWith('error:')) {
-                    onError?.(data.slice(6))
-                    return
-                }
-                if (data.startsWith('chunk:')) {
-                    onChunk?.(data.slice(6))
-                    continue
-                }
-                if (data.startsWith('done:')) {
-                    const msgId = parseInt(data.slice(5), 10)
-                    onDone?.(msgId)
-                    return
+            const text = decoder.decode(value, {stream: true})
+            const lines = text.split('\n')
+
+            for (const line of lines) {
+                if (line.startsWith('data:')) {
+                    const data = line.slice(5).trim()
+                    if (data.startsWith('error:')) {
+                        onError?.(data.slice(6))
+                        return
+                    }
+                    if (data.startsWith('thought:')) {
+                        onThought?.(data.slice(8))
+                        continue
+                    }
+                    if (data.startsWith('chunk:')) {
+                        onChunk?.(data.slice(6))
+                        continue
+                    }
+                    if (data.startsWith('done:')) {
+                        const msgId = parseInt(data.slice(5), 10)
+                        onDone?.(msgId)
+                        currentAbortController = null
+                        return
+                    }
                 }
             }
         }
+    } catch (e) {
+        if (e.name === 'AbortError' || e.type === 'abort') {
+            onAbort?.('abort')
+            return
+        }
+        console.error('Regenerate stream error:', e)
+    } finally {
+        currentAbortController = null
     }
 }

@@ -462,6 +462,7 @@ def send_message_stream(chat_id: int, msg: MessageCreate):
     
     async def event_generator():
         nonlocal full_response, full_thinking, assistant_id
+        from sqlmodel import select
         
         with Session(engine) as session:
             if not session.get(Chat, chat_id):
@@ -490,32 +491,63 @@ def send_message_stream(chat_id: int, msg: MessageCreate):
         try:
             import httpx
             import json
+            import select
+            
             with httpx.stream("POST", url, json=payload, headers=headers, timeout=180.0) as response:
                 if response.status_code != 200:
                     error_msg = f"Model error: {response.status_code}"
                     yield f"data: error:{error_msg}\n\n"
                     return
 
-                for line in response.iter_lines():
+                buffer = ""
+                for chunk in response.iter_raw(chunk_size=1024):
+                    # Проверяем отмену перед обработкой каждого чанка
                     if stream_state.get("cancelled"):
-                        logger.info("Stream cancelled for chat %s", chat_id)
-                        break
-                    if not line:
+                        logger.info("Stream cancelled for chat %s (raw chunk)", chat_id)
+                        active_streams.pop(chat_id, None)
+                        return
+                    
+                    if not chunk:
                         continue
-                    try:
-                        data = json.loads(line)
-                        if data.get("done"):
-                            break
-                        token = data.get("response", "")
-                        thinking = data.get("thinking", "")
-                        if thinking:
-                            full_thinking += thinking
-                            yield f"data: thought:{thinking}\n\n"
-                        if token:
-                            full_response += token
-                            yield f"data: chunk:{token}\n\n"
-                    except json.JSONDecodeError:
-                        continue
+                    
+                    buffer += chunk.decode('utf-8', errors='replace')
+                    lines = buffer.split('\n')
+                    buffer = lines.pop()  # Сохраняем неполную строку в буфер
+                    
+                    for line in lines:
+                        line = line.strip()
+                        if not line:
+                            continue
+                        
+                        # Проверяем отмену перед обработкой каждой строки
+                        if stream_state.get("cancelled"):
+                            logger.info("Stream cancelled for chat %s (line processing)", chat_id)
+                            active_streams.pop(chat_id, None)
+                            return
+                        
+                        try:
+                            data = json.loads(line)
+                            if data.get("done"):
+                                active_streams.pop(chat_id, None)
+                                return
+                            token = data.get("response", "")
+                            thinking = data.get("thinking", "")
+                            if thinking:
+                                full_thinking += thinking
+                                try:
+                                    yield f"data: thought:{thinking}\n\n"
+                                except Exception:
+                                    active_streams.pop(chat_id, None)
+                                    return
+                            if token:
+                                full_response += token
+                                try:
+                                    yield f"data: chunk:{token}\n\n"
+                                except Exception:
+                                    active_streams.pop(chat_id, None)
+                                    return
+                        except json.JSONDecodeError:
+                            continue
         except Exception as e:
             logger.exception("Streaming error")
             yield f"data: error:{str(e)}\n\n"
@@ -523,7 +555,8 @@ def send_message_stream(chat_id: int, msg: MessageCreate):
         finally:
             active_streams.pop(chat_id, None)
 
-        if stream_state.get("cancelled") and not full_response:
+        if stream_state.get("cancelled"):
+            logger.info("Stream completed but was cancelled, not saving for chat %s", chat_id)
             return
 
         with Session(engine) as session:
@@ -605,15 +638,40 @@ def regenerate_message_stream(message_id: int, body: dict = Body(default={})):
     """
     Streaming regenerate endpoint - updates message in place with streaming response.
     """
+    with Session(engine) as session:
+        msg = session.get(Message, message_id)
+        if not msg or msg.role != "assistant":
+            raise HTTPException(status_code=404, detail="Message not found or not assistant")
+        chat_id = msg.chat_id
+    
+    stream_state = {"cancelled": False}
+    active_streams[chat_id] = stream_state
+    
     async def event_generator():
+        from sqlmodel import select
         with Session(engine) as session:
             msg = session.get(Message, message_id)
             if not msg or msg.role != "assistant":
                 yield "data: error:Message not found or not assistant\n\n"
                 return
-            chat_id = msg.chat_id
+            
             history = session.exec(select(Message).where(Message.chat_id == chat_id).order_by(Message.created_at)).all()
-            prompt = "\n".join(f"{m.role}: {m.content}" for m in history if m.role in ("user", "assistant"))
+            
+            msg_idx = None
+            for i, m in enumerate(history):
+                if m.id == message_id:
+                    msg_idx = i
+                    break
+            
+            if msg_idx is None or msg_idx == 0:
+                yield "data: error:No previous message\n\n"
+                return
+            
+            prompt_messages = []
+            for i in range(msg_idx):
+                prompt_messages.append(history[i])
+            
+            prompt = "\n".join(f"{m.role}: {m.content}" for m in prompt_messages)
             model = body.get("model", msg.model)
         
         logger.info("Regenerating message id=%s (streaming) using model=%s", message_id, model)
@@ -623,6 +681,7 @@ def regenerate_message_stream(message_id: int, body: dict = Body(default={})):
         headers = {"Accept": "application/x-ndjson", "Content-Type": "application/json"}
 
         full_response = ""
+        full_thinking = ""
 
         try:
             import httpx
@@ -634,12 +693,20 @@ def regenerate_message_stream(message_id: int, body: dict = Body(default={})):
                     return
 
                 for line in response.iter_lines():
+                    if stream_state.get("cancelled"):
+                        logger.info("Stream cancelled for regenerate message %s", message_id)
+                        active_streams.pop(chat_id, None)
+                        return
                     if not line:
                         continue
                     try:
                         data = json.loads(line)
                         if data.get("done"):
                             break
+                        thinking = data.get("thinking", "")
+                        if thinking:
+                            full_thinking += thinking
+                            yield f"data: thought:{thinking}\n\n"
                         token = data.get("response", "")
                         if token:
                             full_response += token
@@ -650,6 +717,12 @@ def regenerate_message_stream(message_id: int, body: dict = Body(default={})):
             logger.exception("Streaming regenerate error")
             yield f"data: error:{str(e)}\n\n"
             return
+        finally:
+            active_streams.pop(chat_id, None)
+
+        if stream_state.get("cancelled"):
+            logger.info("Regenerate stream was cancelled for message %s", message_id)
+            return
 
         with Session(engine) as session:
             existing = session.get(Message, message_id)
@@ -657,6 +730,7 @@ def regenerate_message_stream(message_id: int, body: dict = Body(default={})):
                 yield "data: error:Message disappeared\n\n"
                 return
             existing.content = full_response
+            existing.thinking = full_thinking if full_thinking else None
             existing.model = model
             session.add(existing)
             session.commit()
@@ -736,3 +810,91 @@ def generate_response(chat_id: int, body: dict = Body(...)):
         session.refresh(bot_msg)
         logger.info("Saved assistant message id=%s for chat=%s (generate)", bot_msg.id, chat_id)
         return {"id": bot_msg.id, "content": bot_msg.content, "model": bot_msg.model, "created_at": bot_msg.created_at.isoformat()}
+
+
+@app.post("/api/chats/{chat_id}/generate/stream")
+def generate_response_stream(chat_id: int, body: dict = Body(...)):
+    """
+    Streaming generate assistant response without creating a new user message.
+    Used after editing a user message.
+    """
+    model = body.get("model")
+    prompt = body.get("prompt", "")
+    
+    with Session(engine) as session:
+        if not session.get(Chat, chat_id):
+            raise HTTPException(status_code=404, detail="Chat not found")
+    
+    stream_state = {"cancelled": False}
+    active_streams[chat_id] = stream_state
+    
+    async def event_generator():
+        from sqlmodel import select
+        url = f"{OLLAMA_HOST}/api/generate"
+        payload = {"model": model, "prompt": prompt, "stream": True}
+        headers = {"Accept": "application/x-ndjson", "Content-Type": "application/json"}
+
+        full_response = ""
+        full_thinking = ""
+
+        try:
+            import httpx
+            import json
+            with httpx.stream("POST", url, json=payload, headers=headers, timeout=180.0) as response:
+                if response.status_code != 200:
+                    error_msg = f"Model error: {response.status_code}"
+                    yield f"data: error:{error_msg}\n\n"
+                    return
+
+                for line in response.iter_lines():
+                    if stream_state.get("cancelled"):
+                        logger.info("Stream cancelled for generate stream chat %s", chat_id)
+                        active_streams.pop(chat_id, None)
+                        return
+                    if not line:
+                        continue
+                    try:
+                        data = json.loads(line)
+                        if data.get("done"):
+                            active_streams.pop(chat_id, None)
+                            return
+                        thinking = data.get("thinking", "")
+                        if thinking:
+                            full_thinking += thinking
+                            try:
+                                yield f"data: thought:{thinking}\n\n"
+                            except Exception:
+                                active_streams.pop(chat_id, None)
+                                return
+                        token = data.get("response", "")
+                        if token:
+                            full_response += token
+                            try:
+                                yield f"data: chunk:{token}\n\n"
+                            except Exception:
+                                active_streams.pop(chat_id, None)
+                                return
+                    except json.JSONDecodeError:
+                        continue
+        except Exception as e:
+            logger.exception("Streaming generate error")
+            yield f"data: error:{str(e)}\n\n"
+            return
+        finally:
+            active_streams.pop(chat_id, None)
+
+        if stream_state.get("cancelled"):
+            logger.info("Stream was cancelled, not saving for chat %s", chat_id)
+            return
+
+        with Session(engine) as session:
+            bot_msg = Message(chat_id=chat_id, role="assistant", content=full_response, thinking=full_thinking if full_thinking else None, model=model)
+            session.add(bot_msg)
+            session.commit()
+            session.refresh(bot_msg)
+            assistant_id = bot_msg.id
+            logger.info("Saved assistant message id=%s for chat=%s (generate stream)", bot_msg.id, chat_id)
+
+        yield f"data: done:{assistant_id}\n\n"
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")

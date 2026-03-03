@@ -8,6 +8,7 @@ export default function AssistantMessageContent({
     content,
     isEditing,
     isStreaming,
+    isRegenerating,
     streamingThought,
     thoughtsEnded,
     isSidebarOpen,
@@ -21,6 +22,8 @@ export default function AssistantMessageContent({
         return null
     }
 
+    const isLoading = isStreaming || isRegenerating
+
     return (
         <div className="p-4 pt-3" style={{ '--code-max-width': codeMaxWidth }}>
             {streamingThought && (
@@ -29,14 +32,14 @@ export default function AssistantMessageContent({
                     isGenerating={!thoughtsEnded}
                 />
             )}
-            {!streamingThought && isStreaming && !content && (
+            {!streamingThought && isLoading && !content && (
                 <LoadingDots />
             )}
             <AnimatedMessage
                 content={content}
                 isSidebarOpen={isSidebarOpen}
                 flattenChildrenToString={flattenChildrenToString}
-                disableAnimation={isStreaming}
+                disableAnimation={isLoading}
             />
         </div>
     )
