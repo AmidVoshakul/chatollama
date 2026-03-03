@@ -8,6 +8,7 @@ export default function MessageList({
   model,
   isSidebarOpen,
   transparentMode,
+  widescreenMode = false,
   setToast,
   onDelete,
   onEdit,
@@ -43,7 +44,7 @@ export default function MessageList({
 
   return (
     <div className="flex-1 overflow-auto pb-28 custom-scroll">
-      <div className="max-w-[650px] mx-auto w-full space-y-4">
+      <div className={`mx-auto w-full space-y-4 ${widescreenMode ? 'max-w-[80%]' : 'max-w-[650px]'}`}>
         <div ref={effectiveTopRef} />
         {messages.map((msg, idx) => {
         const isLast = idx === messages.length - 1

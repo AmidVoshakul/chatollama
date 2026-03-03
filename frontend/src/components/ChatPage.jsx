@@ -18,7 +18,7 @@ const LAST_ACTIVE_CHAT_KEY = 'last_active_chat_id'
  * - theme: string (optional) — current theme, read-only here
  * - transparentMode: boolean (optional) — read-only here
  */
-export default function ChatPage({openSettingsModal, theme, transparentMode, setToast}) {
+export default function ChatPage({openSettingsModal, theme, transparentMode, widescreenMode, setToast}) {
     const [models, setModels] = useState([])
     const [selectedModel, setSelectedModel] = useState('')
     const [chats, setChats] = useState([])
@@ -239,6 +239,7 @@ export default function ChatPage({openSettingsModal, theme, transparentMode, set
                 setIsGenerating={setIsGenerating}
                 isSidebarOpen={isSidebarOpen}
                 transparentMode={transparentMode}
+                widescreenMode={widescreenMode}
                 onFirstMessage={updateChatTitleFromMessage}
                 onChatNotFound={() => {
                     setActiveChat(prev => (prev && chats.some(c => c.id === prev.id) ? prev : (chats[chats.length - 1] || null)))

@@ -22,7 +22,7 @@ export default function MessageInput({
   }
 
   return (
-    <div className="relative mt-3 max-w-[650px] mx-auto w-full">
+    <div className="relative mt-3 mx-auto w-full">
       <textarea
         ref={textareaRef}
         rows={2}

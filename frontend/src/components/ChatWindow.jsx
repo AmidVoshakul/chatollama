@@ -32,6 +32,7 @@ export default function ChatWindow({
   setIsGenerating = () => {},
   isSidebarOpen = true,
   transparentMode = false,
+  widescreenMode = false,
   onChatNotFound,
   onFirstMessage,
   setToast,
@@ -526,7 +527,7 @@ export default function ChatWindow({
       {isEmptyChat ? (
         // Пустой чат - всё по центру
         <div className="flex-1 flex flex-col items-center justify-center animate-fade-in-up">
-          <div className="w-full max-w-[650px]">
+          <div className={`w-full ${widescreenMode ? 'max-w-[80%]' : 'max-w-[650px]'}`}>
             <div className="text-center space-y-2 mb-8">
               <h1 className="text-2xl font-semibold text-[var(--text-main)]">Чем могу помочь?</h1>
               <p className="text-sm text-[var(--text-muted)]">Выберите модель и начните диалог</p>
@@ -560,6 +561,7 @@ export default function ChatWindow({
             model={model}
             isSidebarOpen={isSidebarOpen}
             transparentMode={transparentMode}
+            widescreenMode={widescreenMode}
             setToast={setToast}
             onDelete={deleteMessage}
             onEdit={editMessage}
@@ -570,7 +572,7 @@ export default function ChatWindow({
             topRef={topRef}
             bottomRef={bottomRef}
           />
-          <div className="w-full max-w-[650px] mx-auto mt-auto">
+          <div className={`w-full mx-auto mt-auto ${widescreenMode ? 'max-w-[80%]' : 'max-w-[650px]'}`}>
             <div className="flex items-center justify-between px-1">
               <ModelSelector
                 model={model}
