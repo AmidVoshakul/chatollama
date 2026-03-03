@@ -16,14 +16,12 @@ export default function ModelCard({
         <div
             onClick={onClick}
             className={`
-                relative flex flex-col justify-between 
-                rounded-2xl cursor-pointer transition-all duration-300 
-                border overflow-hidden
-                ${isActive 
-                    ? 'bg-gradient-to-br from-cyan-500/20 to-violet-500/20 border-cyan-500/30 shadow-lg shadow-cyan-500/10' 
-                    : isHovered 
-                        ? 'bg-[var(--bg-surface)] border-[var(--border-color)] hover:border-cyan-500/30 hover:shadow-lg hover:shadow-cyan-500/5 hover:translate-y-[-2px]' 
-                        : 'bg-[var(--bg-surface)] border-[var(--border-color)]'
+                relative flex flex-col justify-between
+                rounded-2xl cursor-pointer transition-all duration-300
+                border overflow-hidden group
+                ${isActive
+                    ? 'bg-[linear-gradient(135deg,rgba(124,58,237,0.15)_0%,rgba(79,70,229,0.1)_100%)] border-[rgba(124,58,237,0.25)] shadow-lg shadow-violet-500/10'
+                    : 'bg-[var(--bg-surface)] border-[var(--border-color)] hover:bg-[linear-gradient(135deg,rgba(124,58,237,0.12)_0%,rgba(79,70,229,0.08)_100%)] hover:border-[rgba(124,58,237,0.15)] hover:shadow-lg hover:shadow-violet-500/10 hover:translate-y-[-2px]'
                 }
             `}
         >

@@ -197,8 +197,8 @@ export default function ModelManager() {
             {/* Header */}
             <div className="relative flex items-center gap-3 p-4 border-b border-[var(--border-color)] bg-[var(--bg-surface)]">
                 <button onClick={() => window.history.back()}
-                        className="p-2 rounded-xl hover:bg-[var(--chatitem-hover-bg)] transition-colors" title="Вернуться">
-                    <FaArrowLeft className={`${ICON} text-[var(--text-muted)]`}/>
+                        className="p-2 rounded-xl transition-all duration-200 hover:bg-[linear-gradient(135deg,rgba(124,58,237,0.12)_0%,rgba(79,70,229,0.08)_100%)] text-[var(--text-muted)] hover:text-violet-400 border border-transparent hover:border-[rgba(124,58,237,0.15)]" title="Вернуться">
+                    <FaArrowLeft className={ICON}/>
                 </button>
 
                 <div className="hidden sm:flex items-center gap-1.5 bg-[var(--bg-main)] p-1 rounded-xl">
@@ -207,10 +207,10 @@ export default function ModelManager() {
                             setFilter(k);
                             setMobileFilter(k)
                         }}
-                                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                                    filter === k 
-                                        ? 'bg-gradient-to-r from-cyan-500 to-violet-500 text-white shadow-lg shadow-cyan-500/20' 
-                                        : 'text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--chatitem-hover-bg)]'
+                                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 border ${
+                                    filter === k
+                                        ? 'bg-[linear-gradient(135deg,rgba(124,58,237,0.12)_0%,rgba(79,70,229,0.08)_100%)] border-[rgba(124,58,237,0.15)] text-[var(--text-main)] shadow-sm'
+                                        : 'text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--chatitem-hover-bg)] border-transparent'
                                 }`}>
                             {k === 'all' ? 'Все' : k === 'installed' ? 'Установленные' : 'Популярные'}
                         </button>
@@ -222,7 +222,7 @@ export default function ModelManager() {
                         setMobileFilter(e.target.value);
                         setFilter(e.target.value)
                     }}
-                            className="bg-[var(--bg-main)] text-sm text-[var(--text-main)] px-4 py-2 rounded-xl border border-[var(--border-color)] focus:outline-none focus:border-cyan-500">
+                            className="bg-[var(--bg-main)] text-sm text-[var(--text-main)] px-4 py-2 rounded-xl border border-[var(--border-color)] focus:outline-none focus:border-violet-500">
                         <option value="all">Все</option>
                         <option value="installed">Установленные</option>
                         <option value="popular">Популярные</option>
@@ -230,15 +230,15 @@ export default function ModelManager() {
                 </div>
 
                 <div className="hidden lg:block absolute left-1/2 transform -translate-x-1/2 w-1/3 min-w-[260px] max-w-[460px]">
-                    <div className="relative">
-                        <FaSearch className="absolute left-4 top-1/2 transform -translate-y-1/2 text-[var(--text-muted)]"/>
+                    <div className="relative group">
+                        <FaSearch className="absolute left-4 top-1/2 transform -translate-y-1/2 text-[var(--text-muted)] group-focus-within:text-[var(--text-main)] transition-colors"/>
                         <input value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Поиск..."
-                               className="w-full pl-11 pr-4 py-2.5 bg-[var(--bg-main)] text-[var(--text-main)] text-sm rounded-xl border border-[var(--border-color)] focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/30 transition-all"/>
+                               className="w-full pl-11 pr-4 py-2.5 bg-[var(--bg-surface)] text-[var(--text-main)] text-sm rounded-xl border border-[rgba(255,255,255,0.06)] focus:outline-none focus:border-[rgba(60,50,80,0.8)] focus:bg-[var(--bg-surface)] transition-all"/>
                     </div>
                 </div>
 
                 <div className="ml-auto flex items-center gap-2">
-                    <button className="lg:hidden p-2 rounded-xl hover:bg-[var(--chatitem-hover-bg)] text-[var(--text-muted)]"
+                    <button className="lg:hidden p-2 rounded-xl transition-all duration-200 hover:bg-[linear-gradient(135deg,rgba(124,58,237,0.12)_0%,rgba(79,70,229,0.08)_100%)] text-[var(--text-muted)] hover:text-violet-400 border border-transparent hover:border-[rgba(124,58,237,0.15)]"
                             onClick={() => setMobileSearchOpen(v => !v)} title="Поиск">
                         <FaSearch className={ICON}/>
                     </button>
@@ -249,11 +249,11 @@ export default function ModelManager() {
             {mobileSearchOpen && (
                 <div className="lg:hidden bg-[var(--bg-surface)] border-b border-[var(--border-color)] px-4 py-3 z-40">
                     <div className="max-w-[920px] mx-auto">
-                        <div className="relative">
-                            <FaSearch className="absolute left-4 top-1/2 transform -translate-y-1/2 text-[var(--text-muted)]"/>
+                        <div className="relative group">
+                            <FaSearch className="absolute left-4 top-1/2 transform -translate-y-1/2 text-[var(--text-muted)] group-focus-within:text-[var(--text-main)] transition-colors"/>
                             <input autoFocus value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
                                    placeholder="Поиск моделей..."
-                                   className="w-full pl-11 pr-10 py-2.5 bg-[var(--bg-main)] text-[var(--text-main)] text-sm rounded-xl border border-[var(--border-color)] focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/30"/>
+                                   className="w-full pl-11 pr-10 py-2.5 bg-[var(--bg-surface)] text-[var(--text-main)] text-sm rounded-xl border border-[var(--border-color)] focus:outline-none focus:border-[rgba(60,50,80,0.8)] focus:bg-[var(--bg-surface)] transition-all"/>
                             <button
                                 className="absolute right-3 top-1/2 transform -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-main)]"
                                 onClick={() => setMobileSearchOpen(false)} aria-label="Закрыть поиск">
