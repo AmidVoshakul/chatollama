@@ -16,9 +16,8 @@ const LAST_ACTIVE_CHAT_KEY = 'last_active_chat_id'
  * Props:
  * - openSettingsModal: function — opens global Settings modal (managed in App.jsx)
  * - theme: string (optional) — current theme, read-only here
- * - transparentMode: boolean (optional) — read-only here
  */
-export default function ChatPage({openSettingsModal, theme, transparentMode, widescreenMode, setToast}) {
+export default function ChatPage({openSettingsModal, theme, widescreenMode, setToast}) {
     const [models, setModels] = useState([])
     const [selectedModel, setSelectedModel] = useState('')
     const [chats, setChats] = useState([])
@@ -238,7 +237,6 @@ export default function ChatPage({openSettingsModal, theme, transparentMode, wid
                 isGenerating={isGenerating}
                 setIsGenerating={setIsGenerating}
                 isSidebarOpen={isSidebarOpen}
-                transparentMode={transparentMode}
                 widescreenMode={widescreenMode}
                 onFirstMessage={updateChatTitleFromMessage}
                 onChatNotFound={() => {

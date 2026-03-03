@@ -7,7 +7,6 @@ export default function MessageList({
   messages,
   model,
   isSidebarOpen,
-  transparentMode,
   widescreenMode = false,
   setToast,
   onDelete,
@@ -77,7 +76,6 @@ export default function MessageList({
               isRegenerating={msg._isRegenerating}
               isLatestAssistant={isLatestAssistant}
               isSidebarOpen={isSidebarOpen}
-              transparentMode={transparentMode}
               setToast={setToast}
               onDelete={() => onDelete(msg.id)}
               onEdit={(newContent) => onEdit(msg.id, newContent)}
@@ -106,7 +104,6 @@ export default function MessageList({
             onRegenerate={() => onRegenerate(msg.id, model)}
             isLatestAssistant={isLatestAssistant}
             isSidebarOpen={isSidebarOpen}
-            transparentMode={transparentMode}
             setToast={setToast}
           />
         )

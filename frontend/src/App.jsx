@@ -11,7 +11,6 @@ const HLJS_DARK_CSS = '/styles/hljs-github-dark.css'
 
 export default function App() {
     const [isSettingsOpen, setIsSettingsOpen] = useState(false)
-    const [transparentMode, setTransparentMode] = useState(false)
     const [widescreenMode, setWidescreenMode] = useState(false)
     const [theme, setTheme] = useState(() => {
         const raw = localStorage.getItem(SETTINGS_KEY)
@@ -37,9 +36,6 @@ export default function App() {
         try {
             const raw = localStorage.getItem(SETTINGS_KEY)
             const parsed = raw ? JSON.parse(raw) : null
-            if (typeof parsed?.transparentMode === 'boolean') {
-                setTransparentMode(parsed.transparentMode)
-            }
             if (typeof parsed?.widescreenMode === 'boolean') {
                 setWidescreenMode(parsed.widescreenMode)
             }
@@ -66,12 +62,9 @@ export default function App() {
         }
     }, [theme])
 
-    const handleSettingsChange = ({theme: newTheme, transparentMode: newTransparent, widescreenMode: newWidescreen}) => {
+    const handleSettingsChange = ({theme: newTheme, widescreenMode: newWidescreen}) => {
         if (newTheme === 'light' || newTheme === 'dark') {
             setTheme(newTheme)
-        }
-        if (typeof newTransparent === 'boolean') {
-            setTransparentMode(newTransparent)
         }
         if (typeof newWidescreen === 'boolean') {
             setWidescreenMode(newWidescreen)
@@ -80,7 +73,6 @@ export default function App() {
         try {
             const payload = {
                 theme: newTheme || theme,
-                transparentMode: typeof newTransparent === 'boolean' ? newTransparent : transparentMode,
                 widescreenMode: typeof newWidescreen === 'boolean' ? newWidescreen : widescreenMode,
             }
             localStorage.setItem(SETTINGS_KEY, JSON.stringify(payload))
@@ -97,25 +89,10 @@ export default function App() {
                     element={
                         <ChatPage
                             theme={theme}
-                            transparentMode={transparentMode}
                             widescreenMode={widescreenMode}
                             openSettingsModal={() => setIsSettingsOpen(true)}
                             setToast={setToast}
                         />
-                    }
-                />
-                <Route
-                    path="/"
-                    element={
-                        <ChatPage
-                            theme={theme}
-                            transparentMode={transparentMode}
-                            widescreenMode={widescreenMode}
-                            openSettingsModal={() => setIsSettingsOpen(true)}
-                            setToast={setToast}
-                        />
-                    }
-                />
                     }
                 />
             </Routes>

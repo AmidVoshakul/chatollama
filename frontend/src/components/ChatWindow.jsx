@@ -31,7 +31,6 @@ export default function ChatWindow({
   isGenerating = false,
   setIsGenerating = () => {},
   isSidebarOpen = true,
-  transparentMode = false,
   widescreenMode = false,
   onChatNotFound,
   onFirstMessage,
@@ -560,7 +559,6 @@ export default function ChatWindow({
             messages={messages}
             model={model}
             isSidebarOpen={isSidebarOpen}
-            transparentMode={transparentMode}
             widescreenMode={widescreenMode}
             setToast={setToast}
             onDelete={deleteMessage}

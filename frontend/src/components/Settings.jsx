@@ -1,6 +1,6 @@
 // src/components/Settings.jsx
 import React, {useEffect, useState} from 'react'
-import {FiMoon, FiSun, FiMaximize, FiLayers, FiX} from 'react-icons/fi'
+import {FiMoon, FiSun, FiMaximize, FiX} from 'react-icons/fi'
 
 const STORAGE_KEY = 'app_settings_v1'
 
@@ -38,7 +38,6 @@ function Toggle({checked, onChange, icon: Icon, label, description}) {
 
 export default function Settings({open, onClose, onChange}) {
     const [theme, setTheme] = useState('dark')
-    const [transparentMode, setTransparentMode] = useState(false)
     const [widescreenMode, setWidescreenMode] = useState(false)
 
     useEffect(() => {
@@ -49,9 +48,6 @@ export default function Settings({open, onClose, onChange}) {
             if (parsed.theme === 'light' || parsed.theme === 'dark') {
                 setTheme(parsed.theme)
             }
-            if (typeof parsed.transparentMode === 'boolean') {
-                setTransparentMode(parsed.transparentMode)
-            }
             if (typeof parsed.widescreenMode === 'boolean') {
                 setWidescreenMode(parsed.widescreenMode)
             }
@@ -61,7 +57,7 @@ export default function Settings({open, onClose, onChange}) {
     }, [])
 
     useEffect(() => {
-        const payload = {theme, transparentMode, widescreenMode}
+        const payload = {theme, widescreenMode}
         try {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(payload))
         } catch (e) {
@@ -70,7 +66,7 @@ export default function Settings({open, onClose, onChange}) {
         if (typeof onChange === 'function') {
             onChange(payload)
         }
-    }, [theme, transparentMode, widescreenMode, onChange])
+    }, [theme, widescreenMode, onChange])
 
     if (!open) return null
 
@@ -137,13 +133,6 @@ export default function Settings({open, onClose, onChange}) {
                             Параметры отображения
                         </label>
                         <div className="space-y-0">
-                            <Toggle
-                                icon={FiLayers}
-                                label="Режим прозрачности"
-                                description="Снижает непрозрачность ответов модели"
-                                checked={transparentMode}
-                                onChange={setTransparentMode}
-                            />
                             <Toggle
                                 icon={FiMaximize}
                                 label="Широкоэкранный режим"

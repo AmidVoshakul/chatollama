@@ -13,7 +13,6 @@ export default function AssistantMessage({
   isRegenerating,
   isLatestAssistant,
   isSidebarOpen,
-  transparentMode,
   setToast,
   onDelete,
   onEdit,
@@ -42,7 +41,6 @@ export default function AssistantMessage({
         onRegenerate={onRegenerate}
         isLatestAssistant={isLatestAssistant}
         isSidebarOpen={isSidebarOpen}
-        transparentMode={transparentMode}
         setToast={setToast}
       />
     </div>
