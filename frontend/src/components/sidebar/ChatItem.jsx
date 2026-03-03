@@ -1,12 +1,13 @@
 // src/components/sidebar/ChatItem.jsx
 import React, { useRef, useEffect, useState, useCallback } from 'react'
-import { FiTrash2, FiMessageSquare } from 'react-icons/fi'
+import { FiMoreVertical, FiMessageSquare, FiEdit2, FiTrash2 } from 'react-icons/fi'
 
 export default function ChatItem({
   chat,
   isActive,
   onSelect,
   onDelete,
+  onRename,
   registerRef,
   unregisterRef
 }) {
@@ -25,7 +26,10 @@ export default function ChatItem({
     : '—'
 
   const scrollRef = useRef(null)
+  const menuRef = useRef(null)
+  const closeTimerRef = useRef(null)
   const [scrollStyle, setScrollStyle] = useState({})
+  const [menuOpen, setMenuOpen] = useState(false)
 
   const recalc = useCallback(() => {
     if (!scrollRef.current) return
@@ -53,6 +57,54 @@ export default function ChatItem({
       if (typeof unregisterRef === 'function') unregisterRef(id)
     }
   }, [id, registerRef, unregisterRef, recalc])
+
+  // Закрытие меню при клике вне
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        setMenuOpen(false)
+      }
+    }
+    if (menuOpen) {
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [menuOpen])
+
+  // Очистка таймера при размонтировании
+  useEffect(() => {
+    return () => {
+      if (closeTimerRef.current) {
+        clearTimeout(closeTimerRef.current)
+      }
+    }
+  }, [])
+
+  const openMenu = () => {
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current)
+      closeTimerRef.current = null
+    }
+    setMenuOpen(true)
+  }
+
+  const closeMenu = () => {
+    closeTimerRef.current = setTimeout(() => {
+      setMenuOpen(false)
+    }, 150)
+  }
+
+  const handleRename = (e) => {
+    e.stopPropagation()
+    setMenuOpen(false)
+    onRename()
+  }
+
+  const handleDelete = (e) => {
+    e.stopPropagation()
+    setMenuOpen(false)
+    onDelete()
+  }
 
   return (
     <div
@@ -98,21 +150,52 @@ export default function ChatItem({
         </span>
       </div>
 
-      <button
-        onClick={e => {
-          e.stopPropagation()
-          onDelete()
-        }}
-        className="
-          p-1 rounded-md transition-all duration-200
-          opacity-0 group-hover:opacity-100
-          hover:bg-red-500/20 text-[var(--text-muted)] hover:text-red-400
-        "
-        title="Удалить чат"
-        aria-label="Удалить чат"
+      {/* Кнопка меню с тремя точками */}
+      <div
+        className="relative"
+        ref={menuRef}
+        onMouseEnter={openMenu}
+        onMouseLeave={closeMenu}
       >
-        <FiTrash2 className="w-3 h-3" />
-      </button>
+        <button
+          className={`
+            p-1.5 rounded-md transition-all duration-200
+            ${menuOpen
+              ? 'opacity-100 bg-[var(--bg-main)] text-[var(--text-main)]'
+              : 'opacity-0 group-hover:opacity-100 text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-main)]'
+            }
+          `}
+          title="Действия"
+          aria-label="Действия"
+        >
+          <FiMoreVertical className="w-3.5 h-3.5" />
+        </button>
+
+        {/* Выпадающее меню */}
+        {menuOpen && (
+          <div
+            className="absolute right-0 top-full mt-1 w-40 bg-[var(--bg-surface)] border border-[var(--border-color)] rounded-lg shadow-lg shadow-black/20 z-50 py-1"
+            onMouseEnter={openMenu}
+            onMouseLeave={closeMenu}
+          >
+            <button
+              onClick={handleRename}
+              className="w-full px-3 py-2 flex items-center gap-2 text-sm text-[var(--text-main)] hover:bg-[var(--bg-main)] transition-colors"
+            >
+              <FiEdit2 className="w-3.5 h-3.5 text-[var(--text-muted)]" />
+              Переименовать
+            </button>
+            <div className="mx-2 my-1 border-t border-[var(--border-color)]" />
+            <button
+              onClick={handleDelete}
+              className="w-full px-3 py-2 flex items-center gap-2 text-sm text-red-400 hover:bg-red-500/10 transition-colors"
+            >
+              <FiTrash2 className="w-3.5 h-3.5" />
+              Удалить чат
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

@@ -202,6 +202,12 @@ export async function editMessage(messageId, newContent) {
     await axios.put(`/api/messages/${messageId}`, {content: newContent})
 }
 
+// Переименование чата
+export async function renameChat(chatId, newTitle) {
+    const {data} = await axios.put(`/api/chats/${chatId}`, {title: newTitle})
+    return data
+}
+
 // Перегенерация ответа ассистента
 export async function regenerateAssistantMessage(messageId, model) {
     const {data} = await axios.post(`/api/messages/${messageId}/regenerate`, {model})

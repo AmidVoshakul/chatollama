@@ -30,7 +30,7 @@ export default function MessageInput({
         onChange={e => setInput(e.target.value)}
         onInput={handleInput}
         onKeyDown={handleKeyDown}
-        placeholder="Введите сообщение..."
+        placeholder="Спросите что угодно..."
         className={`
           w-full 
           bg-[var(--bg-surface)] 

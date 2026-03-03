@@ -10,7 +10,7 @@
 export default function LoadingScreen() {
     return (
         <div
-            className="flex flex-col items-center justify-center h-screen bg-[rgba(31,31,31,1)] text-white animate-fade-in">
+            className="flex flex-col items-center justify-center h-screen bg-[rgba(21,21,21,1)] text-white animate-fade-in">
             <div className="flex items-center gap-2 mb-6">
                 <div className="w-2 h-2 rounded-full bg-purple-500 animate-bounce" style={{animationDelay: '0s'}}/>
                 <div className="w-2 h-2 rounded-full bg-indigo-500 animate-bounce" style={{animationDelay: '0.2s'}}/>

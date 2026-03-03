@@ -3,7 +3,7 @@ import React, {useCallback, useEffect, useRef, useState} from 'react'
 import axios from 'axios'
 import Sidebar from './Sidebar'
 import ChatWindow from './ChatWindow'
-import Modal from './Modal'
+import RenameModal from './RenameModal'
 import TopLoaderGradient from './TopLoaderGradient.jsx'
 import LoadingScreen from './LoadingScreen'
 import ErrorScreen from './ErrorScreen'
@@ -18,18 +18,17 @@ const LAST_ACTIVE_CHAT_KEY = 'last_active_chat_id'
  * - theme: string (optional) — current theme, read-only here
  * - transparentMode: boolean (optional) — read-only here
  */
-export default function ChatPage({openSettingsModal, theme, transparentMode}) {
+export default function ChatPage({openSettingsModal, theme, transparentMode, setToast}) {
     const [models, setModels] = useState([])
     const [selectedModel, setSelectedModel] = useState('')
     const [chats, setChats] = useState([])
     const [activeChat, setActiveChat] = useState(null)
 
-    const [showCreateModal, setShowCreateModal] = useState(false) // modal для создания чата
+    const [renameModal, setRenameModal] = useState({open: false, chatId: null, currentTitle: ''})
     const [loading, setLoading] = useState(true)
     const [isGenerating, setIsGenerating] = useState(false)
     const [isSidebarOpen, setIsSidebarOpen] = useState(true)
 
-    const pendingCreateRef = useRef(null)
     const mountedRef = useRef(false)
     const initialChatCreatedRef = useRef(false)
 
@@ -112,51 +111,70 @@ export default function ChatPage({openSettingsModal, theme, transparentMode}) {
         }
     }, [chats, activeChat])
 
-    // createNewChat — устойчивый колбек
-    const createNewChat = useCallback(async function createNewChat(title) {
-        // Если заголовок пуст — открыть модальное окно и вернуть Promise, который разрешится после ввода
-        if (typeof title !== 'string' || title.trim() === '') {
-            setShowCreateModal(true)
-            return new Promise((resolve, reject) => {
-                pendingCreateRef.current = {resolve, reject}
-            })
-        }
-
+    // createNewChat — создает чат с названием "Новый чат"
+    const createNewChat = useCallback(async function createNewChat() {
         try {
-            const {data: created} = await axios.post('/api/chats', {title: title.trim()})
+            const {data: created} = await axios.post('/api/chats', {title: 'Новый чат'})
             const {data: updatedChats} = await axios.get('/api/chats')
             const normalized = Array.isArray(updatedChats) ? updatedChats.slice().reverse() : (created ? [created] : [])
             setChats(normalized)
             const newActive = created || normalized[normalized.length - 1] || null
             setActiveChat(newActive)
-
-            if (pendingCreateRef.current?.resolve) {
-                try {
-                    pendingCreateRef.current.resolve(newActive)
-                } catch {
-                }
-                pendingCreateRef.current = null
-            }
-
             return newActive
         } catch (e) {
             console.error('❌ Ошибка создания чата:', e)
-            if (pendingCreateRef.current?.reject) {
-                try {
-                    pendingCreateRef.current.reject(e)
-                } catch {
-                }
-                pendingCreateRef.current = null
-            } else if (pendingCreateRef.current?.resolve) {
-                try {
-                    pendingCreateRef.current.resolve(null)
-                } catch {
-                }
-                pendingCreateRef.current = null
-            }
             return null
         }
     }, [])
+
+    // renameChat — переименование чата
+    const renameChat = useCallback(async function renameChat(id, newTitle) {
+        if (!newTitle?.trim()) return
+        try {
+            await axios.put(`/api/chats/${id}`, {title: newTitle.trim()})
+            const {data: updatedChats} = await axios.get('/api/chats')
+            const normalized = Array.isArray(updatedChats) ? updatedChats.slice().reverse() : []
+            setChats(normalized)
+            setToast?.({ type: 'success', text: 'Чат переименован' })
+            if (activeChat?.id === id) {
+                const updated = normalized.find(c => c.id === id)
+                if (updated) setActiveChat(updated)
+            }
+        } catch (e) {
+            console.error('❌ Ошибка переименования чата:', e)
+            setToast?.({ type: 'error', text: 'Ошибка переименования чата' })
+        }
+    }, [activeChat, setToast])
+
+    // updateChatTitleFromMessage — авто-переименование после первого сообщения
+    const updateChatTitleFromMessage = useCallback(async function updateChatTitleFromMessage(chatId, messageText) {
+        const chat = chats.find(c => c.id === chatId)
+        if (!chat || chat.title !== 'Новый чат') return
+        
+        // Берем первые 30 символов сообщения как название
+        const newTitle = messageText.trim().slice(0, 30) || 'Новый чат'
+        if (newTitle && newTitle !== 'Новый чат') {
+            await renameChat(chatId, newTitle)
+        }
+    }, [chats, renameChat])
+
+    // Открытие модалки переименования
+    const openRenameModal = useCallback((chatId, currentTitle) => {
+        setRenameModal({open: true, chatId, currentTitle})
+    }, [])
+
+    // Закрытие модалки переименования
+    const closeRenameModal = useCallback(() => {
+        setRenameModal({open: false, chatId: null, currentTitle: ''})
+    }, [])
+
+    // Обработка переименования из модалки
+    const handleRenameSubmit = useCallback((newTitle) => {
+        if (renameModal.chatId && newTitle.trim()) {
+            renameChat(renameModal.chatId, newTitle.trim())
+        }
+        closeRenameModal()
+    }, [renameModal.chatId, renameChat, closeRenameModal])
 
     // deleteChat — устойчивый колбек
     const deleteChat = useCallback(async function deleteChat(id) {
@@ -165,6 +183,7 @@ export default function ChatPage({openSettingsModal, theme, transparentMode}) {
             const {data: cs} = await axios.get('/api/chats')
             const normalized = Array.isArray(cs) ? cs.slice().reverse() : []
             setChats(normalized)
+            setToast?.({ type: 'success', text: 'Чат удален' })
             if (activeChat?.id === id) {
                 const newActive = normalized[normalized.length - 1] || null
                 setActiveChat(newActive)
@@ -179,35 +198,9 @@ export default function ChatPage({openSettingsModal, theme, transparentMode}) {
             }
         } catch (e) {
             console.error('❌ Ошибка удаления чата:', e)
+            setToast?.({ type: 'error', text: 'Ошибка удаления чата' })
         }
-    }, [activeChat])
-
-    // Обработчики модалки создания чата
-    function handleCreateModalClose() {
-        setShowCreateModal(false)
-        if (pendingCreateRef.current?.resolve) {
-            try {
-                pendingCreateRef.current.resolve(null)
-            } catch {
-            }
-            pendingCreateRef.current = null
-        }
-    }
-
-    async function handleCreateModalSubmit(title) {
-        setShowCreateModal(false)
-        if (typeof title === 'string' && title.trim() !== '') {
-            await createNewChat(title)
-        } else {
-            if (pendingCreateRef.current?.resolve) {
-                try {
-                    pendingCreateRef.current.resolve(null)
-                } catch {
-                }
-                pendingCreateRef.current = null
-            }
-        }
-    }
+    }, [activeChat, setToast])
 
     // Если данные ещё грузятся — показываем загрузочный экран
     if (loading) return <LoadingScreen/>
@@ -227,6 +220,7 @@ export default function ChatPage({openSettingsModal, theme, transparentMode}) {
                 setActiveChat={setActiveChat}
                 createNewChat={createNewChat}
                 deleteChat={deleteChat}
+                onRenameChat={openRenameModal}
                 isSidebarOpen={isSidebarOpen}
                 setIsSidebarOpen={setIsSidebarOpen}
                 openSettingsModal={openSettingsModal}
@@ -241,16 +235,18 @@ export default function ChatPage({openSettingsModal, theme, transparentMode}) {
                 setIsGenerating={setIsGenerating}
                 isSidebarOpen={isSidebarOpen}
                 transparentMode={transparentMode}
+                onFirstMessage={updateChatTitleFromMessage}
                 onChatNotFound={() => {
                     setActiveChat(prev => (prev && chats.some(c => c.id === prev.id) ? prev : (chats[chats.length - 1] || null)))
                 }}
             />
 
-            {/* Модалка создания чата — отдельная, её поведение не пересекается с Settings */}
-            <Modal
-                visible={showCreateModal}
-                onClose={handleCreateModalClose}
-                onSubmit={handleCreateModalSubmit}
+            {/* Модалка переименования чата */}
+            <RenameModal
+                isOpen={renameModal.open}
+                currentTitle={renameModal.currentTitle}
+                onClose={closeRenameModal}
+                onSubmit={handleRenameSubmit}
             />
         </div>
     )

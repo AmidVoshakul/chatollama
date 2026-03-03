@@ -12,6 +12,7 @@ export default function Sidebar({
   setActiveChat,
   createNewChat,
   deleteChat,
+  onRenameChat,
   isSidebarOpen,
   setIsSidebarOpen,
   openSettingsModal,
@@ -106,6 +107,7 @@ export default function Sidebar({
           activeChatId={activeChat?.id}
           onSelectChat={setActiveChat}
           onDeleteChat={deleteChat}
+          onRenameChat={onRenameChat}
           registerRef={handleRegisterRef}
           unregisterRef={handleUnregisterRef}
           isOpen={isSidebarOpen}

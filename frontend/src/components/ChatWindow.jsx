@@ -33,6 +33,7 @@ export default function ChatWindow({
   isSidebarOpen = true,
   transparentMode = false,
   onChatNotFound,
+  onFirstMessage,
   setToast,
 }) {
   const [messages, setMessages] = useState([])
@@ -267,6 +268,10 @@ export default function ChatWindow({
   async function sendMessage() {
     const text = input.trim()
     if (!text || isGenerating || !chat?.id) return
+    
+    // Проверяем, является ли это первым сообщением в чате
+    const isFirstMessage = messages.length === 0
+    
     const tempId = `temp-${Date.now()}`
     const streamId = `stream-${Date.now()}`
     const now = new Date().toISOString()
@@ -313,6 +318,10 @@ export default function ChatWindow({
             )
           )
           setIsGenerating(false)
+          // Если это было первое сообщение, вызываем колбэк для авто-переименования
+          if (isFirstMessage && onFirstMessage) {
+            onFirstMessage(chat.id, text)
+          }
         },
         (error) => {
           if (error && (error.includes('abort') || error.includes('Abort'))) {

@@ -8,6 +8,7 @@ export default function ChatList({
   activeChatId,
   onSelectChat,
   onDeleteChat,
+  onRenameChat,
   registerRef,
   unregisterRef,
   isOpen
@@ -43,6 +44,7 @@ export default function ChatList({
               isActive={activeChatId === chat.id}
               onSelect={() => onSelectChat(chat)}
               onDelete={() => onDeleteChat(chat.id)}
+              onRename={() => onRenameChat(chat.id, chat.title)}
               registerRef={registerRef}
               unregisterRef={unregisterRef}
             />

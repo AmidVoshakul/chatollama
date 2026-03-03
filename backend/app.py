@@ -365,6 +365,24 @@ def delete_chat(chat_id: int):
         session.commit()
 
 
+@app.put("/api/chats/{chat_id}", response_model=ChatRead)
+def update_chat(chat_id: int, body: dict = Body(...)):
+    with Session(engine) as session:
+        chat = session.get(Chat, chat_id)
+        if not chat:
+            raise HTTPException(status_code=404, detail="Chat not found")
+        
+        title = body.get("title")
+        if title is not None:
+            chat.title = str(title).strip()
+        
+        session.add(chat)
+        session.commit()
+        session.refresh(chat)
+        logger.info("Updated chat id=%s title='%s'", chat.id, chat.title)
+        return chat
+
+
 # ========== MESSAGES ==========
 
 @app.get("/api/chats/{chat_id}/messages", response_model=List[MessageRead])
