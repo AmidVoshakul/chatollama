@@ -1,39 +1,40 @@
 // src/components/sidebar/SidebarHeader.jsx
 import React from 'react'
-import { PiSidebar } from 'react-icons/pi'
+import { FiSidebar } from 'react-icons/fi'
 import Logo from './Logo'
 
 export default function SidebarHeader({ isOpen, onToggle }) {
+  if (!isOpen) {
+    return (
+      <div className="flex items-center justify-center py-3 border-b border-[var(--border-color)]">
+        <button
+          onClick={onToggle}
+          className="group p-1.5 rounded-lg transition-all duration-200 hover:bg-[var(--bg-main)] relative"
+          title="Развернуть сайдбар"
+          aria-label="Toggle sidebar"
+        >
+          <Logo className="w-5 h-5 transition-opacity duration-200 group-hover:opacity-0" />
+          <FiSidebar className="w-5 h-5 text-[var(--text-muted)] absolute inset-0 m-auto opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+        </button>
+      </div>
+    )
+  }
+
   return (
-    <div
-      className={`flex px-4 py-4 transition-all duration-300 ease-in-out border-b border-[var(--sidebar-border)] ${
-        isOpen 
-          ? 'flex-row items-center justify-between' 
-          : 'flex-col items-center justify-center py-4'
-      }`}
-    >
-      <div className="flex items-center gap-3">
-        <div className="flex-shrink-0">
-          <Logo />
-        </div>
-        {isOpen && (
-          <span className="text-lg font-bold bg-gradient-to-r from-cyan-500 via-violet-500 to-cyan-500 bg-clip-text text-transparent bg-[length:200%_auto]">
-            ChatoLlama
-          </span>
-        )}
+    <div className="flex items-center justify-between px-3 py-3 border-b border-[var(--border-color)]">
+      <div className="flex items-center gap-2.5">
+        <Logo className="w-6 h-6" />
+        <span className="text-sm font-semibold text-[var(--text-main)]">
+          ChatoLlama
+        </span>
       </div>
       <button
         onClick={onToggle}
-        className={`p-2.5 rounded-xl transition-all duration-300 hover:bg-[var(--chatitem-hover-bg)] ${
-          isOpen 
-            ? '' 
-            : 'mt-3'
-        }`}
-        title={isOpen ? 'Свернуть сайдбар' : 'Развернуть сайдбар'}
-        aria-pressed={isOpen}
+        className="p-1.5 rounded-lg transition-all duration-200 hover:bg-[var(--bg-main)]"
+        title="Свернуть сайдбар"
         aria-label="Toggle sidebar"
       >
-        <PiSidebar className="w-5 h-5 text-[var(--text-muted)] hover:text-[var(--text-main)] transition-all duration-300" />
+        <FiSidebar className="w-4 h-4 text-[var(--text-muted)] hover:text-[var(--text-main)]" />
       </button>
     </div>
   )

@@ -1,19 +1,18 @@
 // src/components/sidebar/ChatItem.jsx
 import React, { useRef, useEffect, useState, useCallback } from 'react'
-import { FaTrash } from 'react-icons/fa'
-import { HiOutlineChatAlt2 } from 'react-icons/hi'
+import { FiTrash2, FiMessageSquare } from 'react-icons/fi'
 
-export default function ChatItem({ 
-  chat, 
-  isActive, 
-  onSelect, 
-  onDelete, 
-  registerRef, 
-  unregisterRef 
+export default function ChatItem({
+  chat,
+  isActive,
+  onSelect,
+  onDelete,
+  registerRef,
+  unregisterRef
 }) {
   const { id, title: rawTitle, created_at } = chat || {}
-  const title = typeof rawTitle === 'string' && rawTitle.trim() !== '' 
-    ? rawTitle.trim() 
+  const title = typeof rawTitle === 'string' && rawTitle.trim() !== ''
+    ? rawTitle.trim()
     : 'Без названия'
 
   const formattedDate = created_at
@@ -60,20 +59,20 @@ export default function ChatItem({
       role="listitem"
       onClick={onSelect}
       className={`
-        group flex items-center gap-3 px-3 py-3 mx-2 mb-1.5 rounded-xl
-        cursor-pointer transition-all duration-200 ease-out
-        ${isActive 
-          ? 'bg-gradient-to-r from-cyan-500/15 via-violet-500/15 to-cyan-500/10 border border-[var(--chatitem-active-border)] shadow-lg shadow-black/10' 
-          : 'hover:bg-[var(--chatitem-hover-bg)] hover:translate-x-0.5 border border-transparent'
+        group flex items-center gap-2 px-2 py-2 rounded-lg
+        cursor-pointer transition-all duration-200 ease-out border
+        ${isActive
+          ? 'bg-[linear-gradient(135deg,rgba(124,58,237,0.12)_0%,rgba(79,70,229,0.08)_100%)] border-[rgba(124,58,237,0.15)] shadow-sm'
+          : 'hover:bg-[var(--bg-main)] border-transparent hover:border-[var(--border-color)]'
         }
       `}
     >
-      <div className={`flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-200 ${
-        isActive 
-          ? 'bg-gradient-to-br from-cyan-500 to-violet-600 shadow-lg shadow-cyan-500/20' 
-          : 'bg-[var(--chatitem-icon-bg)] group-hover:bg-[var(--chatitem-icon-hover-bg)]'
+      <div className={`flex-shrink-0 w-7 h-7 rounded-md flex items-center justify-center transition-all duration-200 border ${
+        isActive
+          ? 'bg-[linear-gradient(135deg,rgba(124,58,237,0.25)_0%,rgba(79,70,229,0.15)_100%)] text-violet-300 border-[rgba(124,58,237,0.3)]'
+          : 'bg-[var(--bg-main)] text-[var(--text-muted)] border-[var(--border-color)] group-hover:border-[rgba(124,58,237,0.15)]'
       }`}>
-        <HiOutlineChatAlt2 className={`w-4 h-4 ${isActive ? 'text-white' : 'text-[var(--chatitem-icon-color)]'}`} />
+        <FiMessageSquare className="w-3 h-3" />
       </div>
 
       <div className="flex-1 min-w-0">
@@ -81,9 +80,9 @@ export default function ChatItem({
           <div
             ref={scrollRef}
             className={`whitespace-nowrap text-sm scroll-animate truncate ${
-              isActive 
-                ? 'text-[var(--chatitem-active-text)] font-medium' 
-                : 'text-[var(--chatitem-text)] group-hover:text-[var(--chatitem-text-hover)]'
+              isActive
+                ? 'text-[var(--text-main)] font-medium'
+                : 'text-[var(--text-main)]'
             }`}
             style={scrollStyle}
             title={title}
@@ -92,8 +91,8 @@ export default function ChatItem({
             {title}
           </div>
         </div>
-        <span className={`text-xs mt-0.5 block ${
-          isActive ? 'text-[var(--chatitem-active-date)]' : 'text-[var(--chatitem-date)]'
+        <span className={`text-[10px] -mt-1.5 block ${
+          isActive ? 'text-violet-400' : 'text-[var(--text-muted)]'
         }`}>
           {formattedDate}
         </span>
@@ -104,15 +103,15 @@ export default function ChatItem({
           e.stopPropagation()
           onDelete()
         }}
-        className={`
-          p-2 rounded-lg transition-all duration-200
+        className="
+          p-1 rounded-md transition-all duration-200
           opacity-0 group-hover:opacity-100
-          hover:bg-red-500/20
-        `}
+          hover:bg-red-500/20 text-[var(--text-muted)] hover:text-red-400
+        "
         title="Удалить чат"
         aria-label="Удалить чат"
       >
-        <FaTrash className="w-3.5 h-3.5 text-red-400/60 hover:text-red-400 transition-colors" />
+        <FiTrash2 className="w-3 h-3" />
       </button>
     </div>
   )

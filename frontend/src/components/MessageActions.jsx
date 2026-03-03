@@ -72,6 +72,13 @@ export default function MessageActions({
   // Кнопки для пользователя
   const userButtons = [
     {
+      key: 'delete',
+      icon: <DeleteIcon />,
+      title: "Удалить",
+      onClick: onDelete,
+      className: getButtonClasses('delete'),
+    },
+    {
       key: 'copy',
       icon: copied ? <CheckIcon /> : <CopyIcon />,
       title: copied ? "Скопировано!" : "Копировать",
@@ -84,13 +91,6 @@ export default function MessageActions({
       title: "Редактировать",
       onClick: onEdit,
       className: getButtonClasses('edit'),
-    },
-    {
-      key: 'delete',
-      icon: <DeleteIcon />,
-      title: "Удалить",
-      onClick: onDelete,
-      className: getButtonClasses('delete'),
     },
   ]
 

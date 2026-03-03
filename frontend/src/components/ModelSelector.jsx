@@ -20,7 +20,7 @@ export default function ModelSelector({
           flex items-center justify-between gap-2
           px-4 py-2.5 rounded-xl text-sm w-64
           bg-[var(--bg-surface)] border border-[var(--border-color)]
-          hover:border-[var(--accent-gradient-from)] hover:border-opacity-50
+          hover:border-[rgba(124,58,237,0.15)] hover:bg-[linear-gradient(135deg,rgba(124,58,237,0.12)_0%,rgba(79,70,229,0.08)_100%)]
           transition-all duration-200
           shadow-sm
         `}
@@ -56,9 +56,9 @@ export default function ModelSelector({
               className={`
                 px-4 py-3 cursor-pointer 
                 border-b border-[var(--border-color)] last:border-b-0
-                hover:bg-gradient-to-r hover:from-cyan-500/10 hover:to-violet-500/10
+                hover:bg-[linear-gradient(135deg,rgba(124,58,237,0.12)_0%,rgba(79,70,229,0.08)_100%)]
                 transition-all duration-150
-                ${m === model ? 'bg-gradient-to-r from-cyan-500/10 to-violet-500/10' : ''}
+                ${m === model ? 'bg-[linear-gradient(135deg,rgba(124,58,237,0.12)_0%,rgba(79,70,229,0.08)_100%)]' : ''}
               `}
               role="option"
               aria-selected={m === model}
@@ -75,7 +75,7 @@ export default function ModelSelector({
                   title={m}
                   className={`truncate text-sm ${
                     m === model 
-                      ? 'text-cyan-400 font-medium' 
+                      ? 'text-violet-400 font-medium' 
                       : 'text-[var(--text-main)]'
                   }`}
                 >
@@ -93,13 +93,14 @@ export default function ModelSelector({
           w-10 h-10 flex items-center justify-center 
           rounded-xl border border-[var(--border-color)]
           bg-[var(--bg-surface)]
-          hover:bg-gradient-to-r hover:from-cyan-500/10 hover:to-violet-500/10
+          hover:bg-[linear-gradient(135deg,rgba(124,58,237,0.12)_0%,rgba(79,70,229,0.08)_100%)]
+          hover:border-[rgba(124,58,237,0.15)]
           transition-all duration-200
         `}
         aria-label="Перейти к моделям"
         title="Открыть менеджер моделей"
       >
-        <FiCpu className="w-4 h-4 text-[var(--text-muted)]" aria-hidden />
+        <FiCpu className="w-4 h-4 text-[var(--text-muted)] hover:text-violet-400 transition-colors" aria-hidden />
       </button>
     </div>
   )

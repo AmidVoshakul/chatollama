@@ -56,11 +56,10 @@ export default function Sidebar({
     <aside
       className={`
         h-screen flex flex-col justify-between
-        bg-gradient-to-b from-[var(--sidebar-bg-top)] to-[var(--sidebar-bg-bottom)] text-[var(--text-main)]
-        border-r border-[var(--sidebar-border)]
-        shadow-2xl shadow-black/20
+        bg-[var(--bg-surface)] text-[var(--text-main)]
+        border-r border-[var(--border-color)]
         transition-all duration-300 ease-in-out
-        ${isSidebarOpen ? 'w-72' : 'w-16'}
+        ${isSidebarOpen ? 'w-72' : 'w-[44px]'}
       `}
       aria-label="Sidebar"
     >
