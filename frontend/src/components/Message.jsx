@@ -180,7 +180,7 @@ export default function Message({
         <div className={`my-4 ${containerAlignment}`}>
             {isUser && (
                 <div className="flex flex-col items-end">
-                    <div className="flex items-center px-2 -py-1.5 text-xs text-[var(--text-muted)] relative">
+                    <div className="flex items-center px-2 text-xs text-[var(--text-muted)] relative">
                         <MessageHeader
                             role="user"
                             formattedDate={formattedDate}
