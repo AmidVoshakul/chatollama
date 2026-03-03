@@ -529,7 +529,7 @@ export default function ChatWindow({
                 setDropdownOpen={setDropdownOpen}
               />
             </div>
-            <div className="mt-0.5">
+            <div className="mt-0">
               <MessageInput
                 input={input}
                 setInput={setInput}
@@ -570,7 +570,7 @@ export default function ChatWindow({
               />
               <ScrollControls topRef={topRef} bottomRef={bottomRef} />
             </div>
-            <div className="mt-0.5">
+            <div className="mt-0">
               <MessageInput
                 input={input}
                 setInput={setInput}

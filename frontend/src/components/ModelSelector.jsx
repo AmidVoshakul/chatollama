@@ -13,12 +13,12 @@ export default function ModelSelector({
   const navigate = useNavigate()
 
   return (
-    <div className="relative flex items-center gap-2">
+    <div className="relative flex items-center gap-1.5">
       <button
         onClick={() => setDropdownOpen(v => !v)}
         className={`
           flex items-center justify-between gap-2
-          px-4 py-2.5 rounded-xl text-sm w-64
+          px-2.5 py-1 rounded-md text-xs w-48
           bg-[var(--bg-surface)] border border-[var(--border-color)]
           hover:border-[rgba(124,58,237,0.15)] hover:bg-[linear-gradient(135deg,rgba(124,58,237,0.12)_0%,rgba(79,70,229,0.08)_100%)]
           transition-all duration-200
@@ -40,9 +40,9 @@ export default function ModelSelector({
         <ul
           role="listbox"
           className={`
-            absolute bottom-full left-0 w-64 max-h-80 overflow-y-auto
+            absolute bottom-full left-0 w-48 max-h-64 overflow-y-auto
             bg-[var(--bg-surface)] border border-[var(--border-color)]
-            rounded-xl shadow-xl z-50 -translate-y-2
+            rounded-md shadow-xl z-50 -translate-y-1
             custom-scroll animate-fade-in
           `}
         >
@@ -54,7 +54,7 @@ export default function ModelSelector({
                 setDropdownOpen(false)
               }}
               className={`
-                px-4 py-3 cursor-pointer 
+                px-2.5 py-1.5 cursor-pointer text-xs
                 border-b border-[var(--border-color)] last:border-b-0
                 hover:bg-[linear-gradient(135deg,rgba(124,58,237,0.12)_0%,rgba(79,70,229,0.08)_100%)]
                 transition-all duration-150
@@ -90,8 +90,8 @@ export default function ModelSelector({
       <button
         onClick={() => navigate('/models')}
         className={`
-          w-10 h-10 flex items-center justify-center 
-          rounded-xl border border-[var(--border-color)]
+          w-7 h-7 flex items-center justify-center 
+          rounded-md border border-[var(--border-color)]
           bg-[var(--bg-surface)]
           hover:bg-[linear-gradient(135deg,rgba(124,58,237,0.12)_0%,rgba(79,70,229,0.08)_100%)]
           hover:border-[rgba(124,58,237,0.15)]
@@ -100,7 +100,7 @@ export default function ModelSelector({
         aria-label="Перейти к моделям"
         title="Открыть менеджер моделей"
       >
-        <FiCpu className="w-4 h-4 text-[var(--text-muted)] hover:text-violet-400 transition-colors" aria-hidden />
+        <FiCpu className="w-3 h-3 text-[var(--text-muted)] hover:text-violet-400 transition-colors" aria-hidden />
       </button>
     </div>
   )

@@ -4,7 +4,7 @@ import { FiChevronUp, FiChevronDown } from 'react-icons/fi'
 
 export default function ScrollControls({ topRef, bottomRef }) {
   return (
-    <div className="flex items-center gap-1.5 mr-4">
+    <div className="flex items-center gap-1 mr-2">
       <button
         onClick={() =>
           topRef?.current?.scrollIntoView({
@@ -13,7 +13,7 @@ export default function ScrollControls({ topRef, bottomRef }) {
           })
         }
         className={`
-          w-9 h-9 flex items-center justify-center rounded-xl
+          w-7 h-7 flex items-center justify-center rounded-md
           border border-[var(--border-color)]
           bg-[var(--bg-surface)]
           hover:bg-[linear-gradient(135deg,rgba(124,58,237,0.12)_0%,rgba(79,70,229,0.08)_100%)]
@@ -24,7 +24,7 @@ export default function ScrollControls({ topRef, bottomRef }) {
         aria-label="Прокрутить вверх"
         title="Прокрутить к началу чата"
       >
-        <FiChevronUp className="w-4 h-4 text-[var(--text-muted)] group-hover:text-violet-400 transition-colors" />
+        <FiChevronUp className="w-3 h-3 text-[var(--text-muted)] group-hover:text-violet-400 transition-colors" />
       </button>
       <button
         onClick={() =>
@@ -34,7 +34,7 @@ export default function ScrollControls({ topRef, bottomRef }) {
           })
         }
         className={`
-          w-9 h-9 flex items-center justify-center rounded-xl
+          w-7 h-7 flex items-center justify-center rounded-md
           border border-[var(--border-color)]
           bg-[var(--bg-surface)]
           hover:bg-[linear-gradient(135deg,rgba(124,58,237,0.12)_0%,rgba(79,70,229,0.08)_100%)]
@@ -45,7 +45,7 @@ export default function ScrollControls({ topRef, bottomRef }) {
         aria-label="Прокрутить вниз"
         title="Прокрутить к последнему сообщению"
       >
-        <FiChevronDown className="w-4 h-4 text-[var(--text-muted)] group-hover:text-violet-400 transition-colors" />
+        <FiChevronDown className="w-3 h-3 text-[var(--text-muted)] group-hover:text-violet-400 transition-colors" />
       </button>
     </div>
   )
