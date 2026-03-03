@@ -1,5 +1,7 @@
 // src/components/ChatWindow.jsx
 import React, { useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { FiChevronDown } from 'react-icons/fi'
 import MessageList from './MessageList'
 import ModelSelector from './ModelSelector'
 import ScrollControls from './ScrollControls'
@@ -42,6 +44,9 @@ export default function ChatWindow({
   const bottomRef = useRef(null)
   const topRef = useRef(null)
   const fetchLockRef = useRef(false)
+  const navigate = useNavigate()
+
+  const isEmptyChat = messages.length === 0
 
   async function fetchMessagesForChat(chatId) {
     if (!chatId || fetchLockRef.current) return
@@ -507,43 +512,77 @@ export default function ChatWindow({
 
   return (
     <div className="flex flex-col flex-1 p-4 bg-[var(--bg-main)] text-[var(--text-main)]">
-      <MessageList
-        messages={messages}
-        model={model}
-        isSidebarOpen={isSidebarOpen}
-        transparentMode={transparentMode}
-        setToast={setToast}
-        onDelete={deleteMessage}
-        onEdit={editMessage}
-        onEditAndRegenerate={editAndRegenerate}
-        onRegenerate={regenerateMessage}
-        streamingThought={streamingThought}
-        thoughtsEnded={thoughtsEnded}
-        topRef={topRef}
-        bottomRef={bottomRef}
-      />
-
-      <div className="relative">
-        <div className="flex items-center justify-between px-1 mt-2">
-          <ModelSelector
-            model={model}
-            models={models}
-            onModelChange={onModelChange}
-            dropdownOpen={dropdownOpen}
-            setDropdownOpen={setDropdownOpen}
-          />
-          <ScrollControls topRef={topRef} bottomRef={bottomRef} />
+      {isEmptyChat ? (
+        // Пустой чат - всё по центру
+        <div className="flex-1 flex flex-col items-center justify-center animate-fade-in-up">
+          <div className="w-full max-w-[650px]">
+            <div className="text-center space-y-2 mb-8">
+              <h1 className="text-2xl font-semibold text-[var(--text-main)]">Чем могу помочь?</h1>
+              <p className="text-sm text-[var(--text-muted)]">Выберите модель и начните диалог</p>
+            </div>
+            <div className="flex items-center justify-between px-1">
+              <ModelSelector
+                model={model}
+                models={models}
+                onModelChange={onModelChange}
+                dropdownOpen={dropdownOpen}
+                setDropdownOpen={setDropdownOpen}
+              />
+            </div>
+            <div className="mt-0.5">
+              <MessageInput
+                input={input}
+                setInput={setInput}
+                isGenerating={isGenerating}
+                onSend={sendMessage}
+                onStop={stopGenerationHandler}
+                handleKeyDown={handleKeyDown}
+              />
+            </div>
+          </div>
         </div>
-
-        <MessageInput
-          input={input}
-          setInput={setInput}
-          isGenerating={isGenerating}
-          onSend={sendMessage}
-          onStop={stopGenerationHandler}
-          handleKeyDown={handleKeyDown}
-        />
-      </div>
+      ) : (
+        // Чат с сообщениями - обычный layout
+        <>
+          <MessageList
+            messages={messages}
+            model={model}
+            isSidebarOpen={isSidebarOpen}
+            transparentMode={transparentMode}
+            setToast={setToast}
+            onDelete={deleteMessage}
+            onEdit={editMessage}
+            onEditAndRegenerate={editAndRegenerate}
+            onRegenerate={regenerateMessage}
+            streamingThought={streamingThought}
+            thoughtsEnded={thoughtsEnded}
+            topRef={topRef}
+            bottomRef={bottomRef}
+          />
+          <div className="w-full max-w-[650px] mx-auto mt-auto">
+            <div className="flex items-center justify-between px-1">
+              <ModelSelector
+                model={model}
+                models={models}
+                onModelChange={onModelChange}
+                dropdownOpen={dropdownOpen}
+                setDropdownOpen={setDropdownOpen}
+              />
+              <ScrollControls topRef={topRef} bottomRef={bottomRef} />
+            </div>
+            <div className="mt-0.5">
+              <MessageInput
+                input={input}
+                setInput={setInput}
+                isGenerating={isGenerating}
+                onSend={sendMessage}
+                onStop={stopGenerationHandler}
+                handleKeyDown={handleKeyDown}
+              />
+            </div>
+          </div>
+        </>
+      )}
     </div>
   )
 }

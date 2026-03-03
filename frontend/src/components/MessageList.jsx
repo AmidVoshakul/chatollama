@@ -42,9 +42,10 @@ export default function MessageList({
   )
 
   return (
-    <div className="flex-1 overflow-auto space-y-4 pb-28 custom-scroll">
-      <div ref={effectiveTopRef} />
-      {messages.map((msg, idx) => {
+    <div className="flex-1 overflow-auto pb-28 custom-scroll">
+      <div className="max-w-[650px] mx-auto w-full space-y-4">
+        <div ref={effectiveTopRef} />
+        {messages.map((msg, idx) => {
         const isLast = idx === messages.length - 1
         const isLatestAssistant =
           isLast && msg.role === 'assistant' && (msg._isStreaming || msg._isRegenerating || streamingThought)
@@ -109,7 +110,8 @@ export default function MessageList({
           />
         )
       })}
-      <div ref={effectiveBottomRef} />
+        <div ref={effectiveBottomRef} />
+      </div>
     </div>
   )
 }
