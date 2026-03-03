@@ -570,48 +570,6 @@ def send_message_stream(chat_id: int, msg: MessageCreate):
 
                     if stream_done:
                         break
-
-                    buffer += chunk.decode('utf-8', errors='replace')
-                    lines = buffer.split('\n')
-                    buffer = lines.pop()  # Сохраняем неполную строку в буфер
-
-                    for line in lines:
-                        line = line.strip()
-                        if not line:
-                            continue
-
-                        # Проверяем отмену перед обработкой каждой строки
-                        if stream_state.get("cancelled"):
-                            logger.info("Stream cancelled for chat %s (line processing)", chat_id)
-                            active_streams.pop(chat_id, None)
-                            return
-
-                        try:
-                            data = json.loads(line)
-                            if data.get("done"):
-                                stream_done = True
-                                break
-                            token = data.get("response", "")
-                            thinking = data.get("thinking", "")
-                            if thinking:
-                                full_thinking += thinking
-                                try:
-                                    yield f"data: thought:{thinking}\n\n"
-                                except Exception:
-                                    active_streams.pop(chat_id, None)
-                                    return
-                            if token:
-                                full_response += token
-                                try:
-                                    yield f"data: chunk:{token}\n\n"
-                                except Exception:
-                                    active_streams.pop(chat_id, None)
-                                    return
-                        except json.JSONDecodeError:
-                            continue
-
-                    if stream_done:
-                        break
         except Exception as e:
             logger.exception("Streaming error")
             yield f"data: error:{str(e)}\n\n"

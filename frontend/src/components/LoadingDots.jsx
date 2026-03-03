@@ -2,7 +2,7 @@ import React from 'react'
 
 export default function LoadingDots() {
     return (
-        <div className="flex items-center gap-1 py-1">
+        <div className="flex items-center gap-1">
             <span className="w-1.5 h-1.5 bg-purple-400 rounded-full" style={{
                 animation: 'bounce 1s infinite',
                 animationDelay: '0ms'

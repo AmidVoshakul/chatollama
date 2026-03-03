@@ -285,6 +285,12 @@ export default function ChatWindow({
       { id: streamId, role: 'assistant', content: '', _isStreaming: true, created_at: now, model: selectedModel },
     ])
     setInput('')
+    
+    // Если это первое сообщение, вызываем колбэк для авто-переименования сразу после отправки
+    if (isFirstMessage && onFirstMessage) {
+      onFirstMessage(chat.id, text, chat.title)
+    }
+    
     setIsGenerating(true)
 
     let accumulatedContent = ''
@@ -318,10 +324,6 @@ export default function ChatWindow({
             )
           )
           setIsGenerating(false)
-          // Если это было первое сообщение, вызываем колбэк для авто-переименования
-          if (isFirstMessage && onFirstMessage) {
-            onFirstMessage(chat.id, text)
-          }
         },
         (error) => {
           if (error && (error.includes('abort') || error.includes('Abort'))) {

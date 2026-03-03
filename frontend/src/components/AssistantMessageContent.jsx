@@ -26,15 +26,17 @@ export default function AssistantMessageContent({
 
     return (
         <div className="p-4 pt-3" style={{ '--code-max-width': codeMaxWidth }}>
-            {streamingThought && (
-                <ThoughtBubble
-                    content={streamingThought}
-                    isGenerating={!thoughtsEnded}
-                />
-            )}
-            {!streamingThought && isLoading && !content && (
-                <LoadingDots />
-            )}
+            <div className="min-h-[2rem] flex items-center">
+                {streamingThought ? (
+                    <ThoughtBubble
+                        content={streamingThought}
+                        isGenerating={!thoughtsEnded}
+                        className="!my-0"
+                    />
+                ) : isLoading && !content ? (
+                    <LoadingDots />
+                ) : null}
+            </div>
             <AnimatedMessage
                 content={content}
                 isSidebarOpen={isSidebarOpen}

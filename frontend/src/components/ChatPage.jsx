@@ -1,5 +1,5 @@
 // src/components/ChatPage.jsx
-import React, {useCallback, useEffect, useRef, useState} from 'react'
+import React, {useCallback, useEffect, useRef, useState, flushSync} from 'react'
 import axios from 'axios'
 import Sidebar from './Sidebar'
 import ChatWindow from './ChatWindow'
@@ -128,35 +128,39 @@ export default function ChatPage({openSettingsModal, theme, transparentMode, set
     }, [])
 
     // renameChat — переименование чата
-    const renameChat = useCallback(async function renameChat(id, newTitle) {
+    const renameChat = useCallback(async function renameChat(id, newTitle, showToast = true) {
         if (!newTitle?.trim()) return
         try {
             await axios.put(`/api/chats/${id}`, {title: newTitle.trim()})
             const {data: updatedChats} = await axios.get('/api/chats')
             const normalized = Array.isArray(updatedChats) ? updatedChats.slice().reverse() : []
             setChats(normalized)
-            setToast?.({ type: 'success', text: 'Чат переименован' })
+            if (showToast) {
+                setToast?.({ type: 'success', text: 'Чат переименован' })
+            }
             if (activeChat?.id === id) {
                 const updated = normalized.find(c => c.id === id)
                 if (updated) setActiveChat(updated)
             }
         } catch (e) {
             console.error('❌ Ошибка переименования чата:', e)
-            setToast?.({ type: 'error', text: 'Ошибка переименования чата' })
+            if (showToast) {
+                setToast?.({ type: 'error', text: 'Ошибка переименования чата' })
+            }
         }
     }, [activeChat, setToast])
 
     // updateChatTitleFromMessage — авто-переименование после первого сообщения
-    const updateChatTitleFromMessage = useCallback(async function updateChatTitleFromMessage(chatId, messageText) {
-        const chat = chats.find(c => c.id === chatId)
-        if (!chat || chat.title !== 'Новый чат') return
-        
+    const updateChatTitleFromMessage = useCallback(async function updateChatTitleFromMessage(chatId, messageText, currentChatTitle) {
+        // Проверяем title чата который передали из ChatWindow
+        if (currentChatTitle !== 'Новый чат') return
+
         // Берем первые 30 символов сообщения как название
         const newTitle = messageText.trim().slice(0, 30) || 'Новый чат'
         if (newTitle && newTitle !== 'Новый чат') {
-            await renameChat(chatId, newTitle)
+            await renameChat(chatId, newTitle, false)
         }
-    }, [chats, renameChat])
+    }, [renameChat])
 
     // Открытие модалки переименования
     const openRenameModal = useCallback((chatId, currentTitle) => {

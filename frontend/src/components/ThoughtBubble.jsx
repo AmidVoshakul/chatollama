@@ -1,7 +1,7 @@
 // src/components/ThoughtBubble.jsx
 import React, {useState, useEffect, useRef} from 'react'
 
-export default function ThoughtBubble({content, isGenerating}) {
+export default function ThoughtBubble({content, isGenerating, className = ''}) {
     const [expanded, setExpanded] = useState(false)
     const [displayedContent, setDisplayedContent] = useState('')
     const [finalTime, setFinalTime] = useState(null)
@@ -41,7 +41,7 @@ export default function ThoughtBubble({content, isGenerating}) {
         <div
             className={`my-3 w-[60%] rounded-lg border border-theme bg-[var(--bg-surface)] shadow-sm transition-all duration-300 ${
                 showShimmer ? 'relative overflow-hidden' : ''
-            }`}
+            } ${className}`}
             role="note"
             aria-live="polite"
         >
