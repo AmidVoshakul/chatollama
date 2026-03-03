@@ -91,7 +91,7 @@ export default function ChatItem({
             {title}
           </div>
         </div>
-        <span className={`text-[10px] -mt-1.5 block ${
+        <span className={`text-[10px] -mt-2.5 block ${
           isActive ? 'text-violet-400' : 'text-[var(--text-muted)]'
         }`}>
           {formattedDate}
