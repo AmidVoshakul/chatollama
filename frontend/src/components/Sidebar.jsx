@@ -69,7 +69,7 @@ export default function Sidebar({
         bg-[var(--bg-surface)] text-[var(--text-main)]
         border-r border-[var(--border-color)]
         transition-all duration-300 ease-in-out
-        ${isSidebarOpen ? 'w-72' : 'w-[44px]'}
+        ${isSidebarOpen ? 'w-72' : 'w-[41px]'}
       `}
       aria-label="Sidebar"
     >

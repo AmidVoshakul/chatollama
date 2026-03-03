@@ -8,6 +8,8 @@ import TopLoaderGradient from './TopLoaderGradient.jsx'
 import LoadingScreen from './LoadingScreen'
 import ErrorScreen from './ErrorScreen'
 
+const LAST_ACTIVE_CHAT_KEY = 'last_active_chat_id'
+
 /**
  * ChatPage
  *
@@ -30,6 +32,17 @@ export default function ChatPage({openSettingsModal, theme, transparentMode}) {
     const pendingCreateRef = useRef(null)
     const mountedRef = useRef(false)
     const initialChatCreatedRef = useRef(false)
+
+    // Сохраняем ID активного чата при изменении
+    useEffect(() => {
+        if (activeChat?.id) {
+            try {
+                localStorage.setItem(LAST_ACTIVE_CHAT_KEY, String(activeChat.id))
+            } catch (e) {
+                console.warn('❌ Ошибка сохранения активного чата:', e)
+            }
+        }
+    }, [activeChat])
 
     // Загрузка моделей и чатов при монтировании
     useEffect(() => {
@@ -56,10 +69,26 @@ export default function ChatPage({openSettingsModal, theme, transparentMode}) {
                     const {data: updatedChats} = await axios.get('/api/chats')
                     const normalized = Array.isArray(updatedChats) ? updatedChats.slice().reverse() : (created ? [created] : [])
                     setChats(normalized)
-                    setActiveChat(created || normalized[0] || null)
+                    setActiveChat(created || normalized[normalized.length - 1] || null)
                 } else {
-                    setChats(cs.slice().reverse())
-                    setActiveChat(cs[0])
+                    const normalized = cs.slice().reverse()
+                    setChats(normalized)
+
+                    // Пытаемся восстановить последний активный чат, или последний созданный
+                    let chatToActivate = normalized[normalized.length - 1]
+                    try {
+                        const savedChatId = localStorage.getItem(LAST_ACTIVE_CHAT_KEY)
+                        if (savedChatId) {
+                            const savedId = parseInt(savedChatId, 10)
+                            const savedChat = normalized.find(c => c.id === savedId)
+                            if (savedChat) {
+                                chatToActivate = savedChat
+                            }
+                        }
+                    } catch (e) {
+                        console.warn('❌ Ошибка восстановления активного чата:', e)
+                    }
+                    setActiveChat(chatToActivate)
                 }
             } catch (e) {
                 console.error('❌ Ошибка загрузки чатов:', e)
@@ -77,9 +106,9 @@ export default function ChatPage({openSettingsModal, theme, transparentMode}) {
 
     // Поддержание актуальности activeChat при удалении/обновлении списка
     useEffect(() => {
-        if (!activeChat && chats.length > 0) setActiveChat(chats[0])
+        if (!activeChat && chats.length > 0) setActiveChat(chats[chats.length - 1])
         else if (activeChat && !chats.some(c => c.id === activeChat.id)) {
-            setActiveChat(chats[0] || null)
+            setActiveChat(chats[chats.length - 1] || null)
         }
     }, [chats, activeChat])
 
@@ -98,7 +127,7 @@ export default function ChatPage({openSettingsModal, theme, transparentMode}) {
             const {data: updatedChats} = await axios.get('/api/chats')
             const normalized = Array.isArray(updatedChats) ? updatedChats.slice().reverse() : (created ? [created] : [])
             setChats(normalized)
-            const newActive = created || normalized[0] || null
+            const newActive = created || normalized[normalized.length - 1] || null
             setActiveChat(newActive)
 
             if (pendingCreateRef.current?.resolve) {
@@ -136,7 +165,18 @@ export default function ChatPage({openSettingsModal, theme, transparentMode}) {
             const {data: cs} = await axios.get('/api/chats')
             const normalized = Array.isArray(cs) ? cs.slice().reverse() : []
             setChats(normalized)
-            if (activeChat?.id === id) setActiveChat(normalized[0] || null)
+            if (activeChat?.id === id) {
+                const newActive = normalized[normalized.length - 1] || null
+                setActiveChat(newActive)
+                // Очищаем сохраненный ID если чатов больше нет
+                if (!newActive) {
+                    try {
+                        localStorage.removeItem(LAST_ACTIVE_CHAT_KEY)
+                    } catch (e) {
+                        console.warn('❌ Ошибка очистки сохраненного чата:', e)
+                    }
+                }
+            }
         } catch (e) {
             console.error('❌ Ошибка удаления чата:', e)
         }
@@ -202,7 +242,7 @@ export default function ChatPage({openSettingsModal, theme, transparentMode}) {
                 isSidebarOpen={isSidebarOpen}
                 transparentMode={transparentMode}
                 onChatNotFound={() => {
-                    setActiveChat(prev => (prev && chats.some(c => c.id === prev.id) ? prev : (chats[0] || null)))
+                    setActiveChat(prev => (prev && chats.some(c => c.id === prev.id) ? prev : (chats[chats.length - 1] || null)))
                 }}
             />
 
