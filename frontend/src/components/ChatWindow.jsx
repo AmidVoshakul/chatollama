@@ -1,7 +1,6 @@
 // src/components/ChatWindow.jsx
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useRef, useState, useCallback, memo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { FiChevronDown } from 'react-icons/fi'
 import MessageList from './MessageList'
 import ModelSelector from './ModelSelector'
 import ScrollControls from './ScrollControls'
@@ -41,6 +40,11 @@ export default function ChatWindow({
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [streamingThought, setStreamingThought] = useState('')
   const [thoughtsEnded, setThoughtsEnded] = useState(false)
+  
+  // Оптимизация: ref для аккумуляции контента без лишних рендеров
+  const streamContentRef = useRef('')
+  const activeStreamIdRef = useRef(null)
+  const pendingUpdateRef = useRef(null)
 
   const bottomRef = useRef(null)
   const topRef = useRef(null)
@@ -48,6 +52,40 @@ export default function ChatWindow({
   const navigate = useNavigate()
 
   const isEmptyChat = messages.length === 0
+  
+  // Оптимизированное обновление контента стрима с throttle
+  const updateStreamContent = useCallback((streamId, content) => {
+    streamContentRef.current = content
+    
+    // Отменяем предыдущий запланированный апдейт
+    if (pendingUpdateRef.current) {
+      cancelAnimationFrame(pendingUpdateRef.current)
+    }
+    
+    // Планируем апдейт на следующий кадр
+    pendingUpdateRef.current = requestAnimationFrame(() => {
+      pendingUpdateRef.current = null
+      if (activeStreamIdRef.current !== streamId) return
+      
+      setMessages(prev => {
+        const msg = prev.find(m => m.id === streamId)
+        if (!msg || msg.content === content) return prev
+        
+        return prev.map(m => 
+          m.id === streamId ? { ...m, content } : m
+        )
+      })
+    })
+  }, [])
+  
+  // Очистка при размонтировании
+  useEffect(() => {
+    return () => {
+      if (pendingUpdateRef.current) {
+        cancelAnimationFrame(pendingUpdateRef.current)
+      }
+    }
+  }, [])
 
   async function fetchMessagesForChat(chatId) {
     if (!chatId || fetchLockRef.current) return
@@ -57,47 +95,16 @@ export default function ChatWindow({
       const normalized = []
       const shownThoughtIds = getShownThoughtIds()
       for (const m of raw) {
-        if (
-          m.role === 'assistant' &&
-          typeof m.content === 'string' &&
-          (m.thinking || m.content.includes('<think>'))
-        ) {
-          let thought = m.thinking || null
-          let contentWithoutThought = m.content
-          
-          if (!thought && m.content.includes('<think>')) {
-            const { contentWithoutThought: extracted, thought: extractedThought } =
-              extractThoughtFromContent(m.content)
-            contentWithoutThought = extracted
-            thought = extractedThought
-          }
-          
-          if (thought) {
-            const thoughtId = `thought-${m.id}`
-            normalized.push({
-              ...m,
-              id: m.id,
-              content: contentWithoutThought,
-              thinking: thought,
-              type: 'text',
-            })
-            continue
-          }
-        }
         normalized.push({
           ...m,
-          id: m.id,
-          type: m.type || 'text',
+          _showThought: m.thinking && !shownThoughtIds.includes(String(m.id)),
         })
       }
-      setMessages(normalized)
-    } catch (err) {
-      if (err.response?.status === 404) {
-        setMessages([])
-        onChatNotFound?.()
-      } else {
-        setToast?.({ type: 'error', text: 'Ошибка загрузки сообщений' })
+      if (fetchLockRef.current) {
+        setMessages(normalized)
       }
+    } catch {
+      setToast?.({ type: 'error', text: 'Ошибка загрузки сообщений' })
     } finally {
       fetchLockRef.current = false
     }
@@ -106,7 +113,7 @@ export default function ChatWindow({
   async function stopGenerationHandler() {
     if (!chat?.id) return
     
-    // Немедленно очищаем UI - оставляем только последнее сообщение пользователя
+    // Немедленно очищаем UI
     setMessages(currentMessages => {
       const lastUserIndex = currentMessages.findLastIndex(m => m.role === 'user')
       if (lastUserIndex >= 0) {
@@ -117,8 +124,14 @@ export default function ChatWindow({
     setStreamingThought('')
     setThoughtsEnded(false)
     setIsGenerating(false)
+    activeStreamIdRef.current = null
+    streamContentRef.current = ''
     
-    // Отправляем запрос на остановку бэкенду
+    if (pendingUpdateRef.current) {
+      cancelAnimationFrame(pendingUpdateRef.current)
+      pendingUpdateRef.current = null
+    }
+    
     try {
       await stopGeneration(chat.id)
     } catch {
@@ -166,7 +179,6 @@ export default function ChatWindow({
     
     if (msg.role === 'user') {
       try {
-        // Сначала удаляем сообщения после редактируемого
         const messagesToDelete = messages.slice(msgIndex + 1)
         for (const m of messagesToDelete) {
           if (!isTempId(m.id)) {
@@ -176,14 +188,13 @@ export default function ChatWindow({
           }
         }
         
-        // Редактируем сообщение пользователя
         await apiEditMessage(id, newContent)
         
-        // Обновляем UI и запускаем генерацию ответа
         const now = new Date().toISOString()
         const streamId = `stream-${Date.now()}`
+        activeStreamIdRef.current = streamId
+        streamContentRef.current = ''
         
-        // Добавляем временное сообщение ассистента
         setMessages(prev => [
           ...prev.slice(0, msgIndex + 1),
           { id: streamId, role: 'assistant', content: '', _isStreaming: true, created_at: now, model: model },
@@ -192,35 +203,34 @@ export default function ChatWindow({
         setStreamingThought('')
         setThoughtsEnded(false)
         
-        // Формируем prompt
         const prompt = messages
           .slice(0, msgIndex + 1)
           .map(m => `${m.role}: ${m.role === 'user' && m.id === id ? newContent : m.content}`)
           .join('\n')
         
-        let accumulatedContent = ''
-        
-        // Используем стриминг генерацию
         await sendGenerateStream(
           chat.id,
           model,
           prompt,
           (chunk) => {
-            accumulatedContent += chunk
-            if (accumulatedContent.length > 0) {
+            const newContent = streamContentRef.current + chunk
+            streamContentRef.current = newContent
+            if (newContent.length > 0 && !thoughtsEnded) {
               setThoughtsEnded(true)
             }
-            setMessages(prev =>
-              prev.map(m =>
-                m.id === streamId ? { ...m, content: accumulatedContent } : m
-              )
-            )
+            updateStreamContent(streamId, newContent)
           },
           (thought) => {
             setThoughtsEnded(false)
             setStreamingThought(prev => prev + thought)
           },
           (messageId) => {
+            activeStreamIdRef.current = null
+            streamContentRef.current = ''
+            if (pendingUpdateRef.current) {
+              cancelAnimationFrame(pendingUpdateRef.current)
+              pendingUpdateRef.current = null
+            }
             if (streamingThought) {
               addShownThoughtId(`thought-${messageId}`)
             }
@@ -233,8 +243,13 @@ export default function ChatWindow({
             fetchMessagesForChat(chat.id)
           },
           (error) => {
+            activeStreamIdRef.current = null
+            streamContentRef.current = ''
+            if (pendingUpdateRef.current) {
+              cancelAnimationFrame(pendingUpdateRef.current)
+              pendingUpdateRef.current = null
+            }
             if (error && (error.includes('abort') || error.includes('Abort'))) {
-              // При отмене очищаем все сообщения после последнего сообщения пользователя
               setMessages(currentMessages => {
                 const lastUserIndex = currentMessages.findLastIndex(m => m.role === 'user')
                 if (lastUserIndex >= 0) {
@@ -257,6 +272,8 @@ export default function ChatWindow({
           }
         )
       } catch {
+        activeStreamIdRef.current = null
+        streamContentRef.current = ''
         setToast?.({ type: 'error', text: 'Ошибка при обновлении сообщения' })
       }
     } else {
@@ -269,16 +286,19 @@ export default function ChatWindow({
     const text = input.trim()
     if (!text || isGenerating || !chat?.id) return
     
-    // Проверяем, является ли это первым сообщением в чате
     const isFirstMessage = messages.length === 0
     
     const tempId = `temp-${Date.now()}`
     const streamId = `stream-${Date.now()}`
     const now = new Date().toISOString()
     const selectedModel = model
-    setStreamingThought(null)
+    
+    activeStreamIdRef.current = streamId
+    streamContentRef.current = ''
+    
     setStreamingThought('')
     setThoughtsEnded(false)
+    
     setMessages(prev => [
       ...prev,
       { id: tempId, role: 'user', content: text, _isTemp: true, created_at: now, model: selectedModel },
@@ -286,33 +306,32 @@ export default function ChatWindow({
     ])
     setInput('')
     
-    // Если это первое сообщение, вызываем колбэк для авто-переименования сразу после отправки
     if (isFirstMessage && onFirstMessage) {
       onFirstMessage(chat.id, text, chat.title)
     }
     
     setIsGenerating(true)
 
-    let accumulatedContent = ''
     try {
       await sendUserMessageStream(
         chat.id,
         text,
         model,
         (chunk) => {
-          accumulatedContent += chunk
-          if (accumulatedContent.length > 0) {
+          const newContent = streamContentRef.current + chunk
+          streamContentRef.current = newContent
+          if (newContent.length > 0 && !thoughtsEnded) {
             setThoughtsEnded(true)
           }
-          setMessages(prev =>
-            prev.map(m =>
-              m.id === streamId
-                ? { ...m, content: accumulatedContent }
-                : m
-            )
-          )
+          updateStreamContent(streamId, newContent)
         },
         (messageId) => {
+          activeStreamIdRef.current = null
+          streamContentRef.current = ''
+          if (pendingUpdateRef.current) {
+            cancelAnimationFrame(pendingUpdateRef.current)
+            pendingUpdateRef.current = null
+          }
           if (streamingThought) {
             addShownThoughtId(`thought-${messageId}`)
           }
@@ -326,8 +345,13 @@ export default function ChatWindow({
           setIsGenerating(false)
         },
         (error) => {
+          activeStreamIdRef.current = null
+          streamContentRef.current = ''
+          if (pendingUpdateRef.current) {
+            cancelAnimationFrame(pendingUpdateRef.current)
+            pendingUpdateRef.current = null
+          }
           if (error && (error.includes('abort') || error.includes('Abort'))) {
-            // При отмене очищаем все сообщения после последнего сообщения пользователя
             setMessages(currentMessages => {
               const lastUserIndex = currentMessages.findLastIndex(m => m.role === 'user')
               if (lastUserIndex >= 0) {
@@ -353,6 +377,12 @@ export default function ChatWindow({
           setStreamingThought(prev => prev + thought)
         },
         () => {
+          activeStreamIdRef.current = null
+          streamContentRef.current = ''
+          if (pendingUpdateRef.current) {
+            cancelAnimationFrame(pendingUpdateRef.current)
+            pendingUpdateRef.current = null
+          }
           setMessages(prev =>
             prev.map(m =>
               m.id === streamId ? { ...m, _isStreaming: false } : m
@@ -363,7 +393,13 @@ export default function ChatWindow({
         }
       )
     } catch {
-      setToast?.({ type: 'error', text: 'Ошибка редактирования сообщения' })
+      activeStreamIdRef.current = null
+      streamContentRef.current = ''
+      if (pendingUpdateRef.current) {
+        cancelAnimationFrame(pendingUpdateRef.current)
+        pendingUpdateRef.current = null
+      }
+      setToast?.({ type: 'error', text: 'Ошибка отправки сообщения' })
     }
   }
 
@@ -411,6 +447,9 @@ export default function ChatWindow({
     const streamId = `regen-${assistantId}-${Date.now()}`
     const now = new Date().toISOString()
     
+    activeStreamIdRef.current = streamId
+    streamContentRef.current = ''
+    
     setMessages(prev =>
       prev.map(m =>
         m.id === assistantId
@@ -431,10 +470,13 @@ export default function ChatWindow({
         assistantId,
         currentModel,
         (chunk) => {
+          const newContent = streamContentRef.current + chunk
+          streamContentRef.current = newContent
+          updateStreamContent(streamId, newContent)
           setMessages(prev =>
             prev.map(m =>
               m._tempStreamId === streamId
-                ? { ...m, content: m.content + chunk }
+                ? { ...m, content: newContent }
                 : m
             )
           )
@@ -444,6 +486,12 @@ export default function ChatWindow({
           setStreamingThought(prev => prev + thought)
         },
         () => {
+          activeStreamIdRef.current = null
+          streamContentRef.current = ''
+          if (pendingUpdateRef.current) {
+            cancelAnimationFrame(pendingUpdateRef.current)
+            pendingUpdateRef.current = null
+          }
           setMessages(prev =>
             prev.map(m =>
               m._tempStreamId === streamId
@@ -455,8 +503,13 @@ export default function ChatWindow({
           fetchMessagesForChat(chat.id)
         },
         (error) => {
+          activeStreamIdRef.current = null
+          streamContentRef.current = ''
+          if (pendingUpdateRef.current) {
+            cancelAnimationFrame(pendingUpdateRef.current)
+            pendingUpdateRef.current = null
+          }
           if (error && (error.includes('abort') || error.includes('Abort'))) {
-            // При отмене очищаем все сообщения после последнего сообщения пользователя
             setMessages(currentMessages => {
               const lastUserIndex = currentMessages.findLastIndex(m => m.role === 'user')
               if (lastUserIndex >= 0) {
@@ -479,6 +532,12 @@ export default function ChatWindow({
         }
       )
     } catch (err) {
+      activeStreamIdRef.current = null
+      streamContentRef.current = ''
+      if (pendingUpdateRef.current) {
+        cancelAnimationFrame(pendingUpdateRef.current)
+        pendingUpdateRef.current = null
+      }
       if (err.response?.status === 404) {
         await fetchMessagesForChat(chat.id)
         setToast?.({
@@ -505,6 +564,8 @@ export default function ChatWindow({
       setInput('')
       setStreamingThought('')
       setThoughtsEnded(false)
+      activeStreamIdRef.current = null
+      streamContentRef.current = ''
       return
     }
     setInput('')
@@ -524,36 +585,26 @@ export default function ChatWindow({
   return (
     <div className="flex flex-col flex-1 p-4 bg-[var(--bg-main)] text-[var(--text-main)]">
       {isEmptyChat ? (
-        // Пустой чат - всё по центру
         <div className="flex-1 flex flex-col items-center justify-center animate-fade-in-up">
           <div className={`w-full ${widescreenMode ? 'max-w-[80%]' : 'max-w-[650px]'}`}>
-            <div className="text-center space-y-2 mb-8">
-              <h1 className="text-2xl font-semibold text-[var(--text-main)]">Чем могу помочь?</h1>
-              <p className="text-sm text-[var(--text-muted)]">Выберите модель и начните диалог</p>
-            </div>
-            <div className="flex items-center justify-between px-1">
-              <ModelSelector
-                model={model}
-                models={models}
-                onModelChange={onModelChange}
-                dropdownOpen={dropdownOpen}
-                setDropdownOpen={setDropdownOpen}
-              />
-            </div>
-            <div className="mt-0">
-              <MessageInput
-                input={input}
-                setInput={setInput}
-                isGenerating={isGenerating}
-                onSend={sendMessage}
-                onStop={stopGenerationHandler}
-                handleKeyDown={handleKeyDown}
-              />
-            </div>
+            <ModelSelector
+              model={model}
+              models={models}
+              onModelChange={onModelChange}
+              dropdownOpen={dropdownOpen}
+              setDropdownOpen={setDropdownOpen}
+            />
+            <MessageInput
+              input={input}
+              setInput={setInput}
+              isGenerating={isGenerating}
+              onSend={sendMessage}
+              onStop={stopGenerationHandler}
+              handleKeyDown={handleKeyDown}
+            />
           </div>
         </div>
       ) : (
-        // Чат с сообщениями - обычный layout
         <>
           <MessageList
             messages={messages}

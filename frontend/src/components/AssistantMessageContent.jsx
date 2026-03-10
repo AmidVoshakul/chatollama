@@ -42,6 +42,7 @@ export default function AssistantMessageContent({
                 isSidebarOpen={isSidebarOpen}
                 flattenChildrenToString={flattenChildrenToString}
                 disableAnimation={isLoading}
+                isStreaming={isStreaming}
             />
         </div>
     )

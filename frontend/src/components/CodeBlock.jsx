@@ -1,7 +1,7 @@
 import React, {useState, useMemo} from 'react'
 import hljs from 'highlight.js'
 
-export default function CodeBlock({children, codeText, language, isSidebarOpen, flattenChildrenToString}) {
+export default function CodeBlock({codeText, language, isSidebarOpen, flattenChildrenToString}) {
     const [collapsed, setCollapsed] = useState(false)
     const [copied, setCopied] = useState(false)
 
@@ -31,14 +31,9 @@ export default function CodeBlock({children, codeText, language, isSidebarOpen, 
 
     const displayLang = languageMap[language?.toLowerCase()] || language?.toUpperCase() || 'CODE'
 
-    const text = codeText || (typeof flattenChildrenToString === 'function'
-        ? flattenChildrenToString(children)
-        : Array.isArray(children)
-            ? children.map(c => (typeof c === 'string' ? c : '')).join('')
-            : typeof children === 'string'
-                ? children
-                : '')
+    const text = codeText || ''
 
+    // Синхронная подсветка для завершенного кода
     const highlightedCode = useMemo(() => {
         if (!text) return ''
         try {
@@ -65,7 +60,6 @@ export default function CodeBlock({children, codeText, language, isSidebarOpen, 
 
     return (
         <div className="relative my-4 rounded-lg border border-theme bg-[var(--code-bg)] shadow-lg">
-            {/* Header */}
             <div
                 className="flex justify-between items-center px-4 py-2.5 text-xs text-[var(--text-muted)] bg-gradient-to-r from-[var(--bg-variant)] to-[var(--code-bg)]"
             >
@@ -125,7 +119,6 @@ export default function CodeBlock({children, codeText, language, isSidebarOpen, 
                 </button>
             </div>
 
-            {/* Code content */}
             {!collapsed && (
                 <div className="w-full min-w-0 overflow-hidden" style={{maxWidth}}>
                     <div className="overflow-x-auto w-full">
